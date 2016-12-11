@@ -13,7 +13,8 @@ import math
 import glob
 from LCBnet_lib import *
 import statsmodels.api as sm
-
+# import seaborn as sns
+# sns.set()
 from sklearn.preprocessing import scale, StandardScaler
 from sklearn.decomposition import PCA
 from sklearn import cross_validation
@@ -29,7 +30,9 @@ from compiler.ast import Const
 from sklearn import metrics
 from numpy import nan
 from scipy.optimize import curve_fit
+import statsmodels.api as sm
 
+from matplotlib.ticker import MaxNLocator
 LCB_Irr = Irradiance_sim_obs.LCB_Irr
 
 
@@ -55,8 +58,9 @@ class StaMod():
         self.params_scores = [] # contains the fit parameters for the PC scores 
         self.topo_index = [] # contain the topographic index at each station point
         self.standard = False # flag to see if the input data has been standardize
+        self.scores_model = {} # contain the models for the scores
 
-    def pca_transform(self, nb_PC=4, standard = False, sklearn=False, cov=True):
+    def pca_transform(self, nb_PC=4,center=False, standard = False, sklearn=False, cov=True):
         """
         Perform the Principal component analysis with SKlearn
         using singular value decomposition
@@ -87,6 +91,11 @@ class StaMod():
         df = self.df
         self.nb_PC = nb_PC
 
+        if center:
+            print 'center'
+            df = (df - df.mean(axis=0))
+
+
         if standard:
             # standardize
 #             df_std = StandardScaler().fit_transform(df)
@@ -112,12 +121,9 @@ class StaMod():
             eigenvalues = pca.explained_variance_
             eigenvectors = pca.components_ # or loading 
              
-            # Make a list of (eigenvalue, eigenvector) tuples     
+            # Make a list of (eigenvalue, eigenvector) tuples   
             self.eigpairs = [(np.abs(self.eigenvalues[i]), self.eigenvector[i,:]) for i in range(len(self.eigenvalues))]
 
-
-
-            
             
 
         #=======================================================================
@@ -220,12 +226,18 @@ class StaMod():
         for PC, row in self.eigenvectors.iterrows():
             X = np.array(self.AttSta.getatt(self.df.keys(), params[PC - 1]))
             self.topo_index.append(X)
+            
+            print fit[PC-1]
+            print X
+            print row
+            
             popt, pcov = curve_fit(fit[PC-1], X, row)
             fit_parameters.append([x for x in popt])
-            
-        fit_parameters = np.vstack(fit_parameters)
         
-        self.params_loadings = [pd.DataFrame(fit_parameters, index =range(1,self.nb_PC+1), columns = range(len(popt)))]
+#         print fit_parameters
+#         fit_parameters = np.vstack(fit_parameters)
+#         print 
+        self.params_loadings = [pd.DataFrame(fit_parameters, index =range(1,self.nb_PC+1), columns = range(3))]
         self.fit_loadings = fit
         return self.params_loadings
 
@@ -318,24 +330,33 @@ class StaMod():
     
 #------------------------------------------------------------------------------ 
 
-    def pca_reconstruct(self):
+    def pca_reconstruct(self, pcs = None):
         """
         Reconstruct the original dataset with the "nb_PC" principal component
         Note:
             The idea is to reconstruct by hand to see if the downscalling is done correctly
+            
+        pcs: PCs to use to reconstruct the data
         """
         eigenvectors = self.eigenvectors
         scores = self.scores
         
         df = pd.DataFrame(columns=eigenvectors.columns, index=scores.index)
-        
+
+        if pcs == None:
+            pcs = scores.columns
+        print "allo"
+        print pcs
+
         for sta in eigenvectors.columns:
-            for PC in scores.columns:
-                if PC ==1:
+            for i, PC in enumerate(pcs):
+                if i ==0:
                     df[sta] = scores[PC]*eigenvectors[sta][PC]
                 else:
                     df[sta] = df[sta] + scores[PC]*eigenvectors[sta][PC]
 #         print df
+        return df
+
     def skill(self, df_verif, predictors_scores, metrics, params_loadings=None, params_scores=None):
         """
         DESCRIPTION
@@ -386,28 +407,40 @@ class StaMod():
         
         return params_loadings, params_scores
            
-    def plot_exp_var(self):
+    def plot_exp_var(self, output=None):
         """
         DESCRIPTION
             Make a plot of the variance explaine by the principal components
         """
-        print "Plot explainde variance"
+        print "Plot explained variance"
         eig_vals = self.eigenvalues
+        
+        print eig_vals.index
+        
         
         tot = sum(eig_vals)
         var_exp = [(i / tot)*100 for i in sorted(eig_vals, reverse=True)]
         cum_var_exp = np.cumsum(var_exp)
         
-        plt.figure(figsize=(6, 4))
+        ax = plt.figure(figsize=(6, 4)).gca()
     
-        plt.bar(range(4), var_exp, alpha=0.5, align='center',
+        plt.bar(eig_vals.index, var_exp, alpha=0.5, align='center',
                 label='individual explained variance')
-        plt.step(range(4), cum_var_exp, where='mid',
+        plt.step(eig_vals.index, cum_var_exp, where='mid',
                  label='cumulative explained variance')
-        plt.ylabel('Explained variance ratio')
+        ax.set_xticks(eig_vals.index)
+        ax.set_xticklabels(eig_vals.index)
+        plt.ylabel('Explained variance (%)')
         plt.xlabel('Principal components')
         plt.legend(loc='best')
         plt.tight_layout()
+        plt.grid(True, color='0.5')
+        
+        if output:
+            plt.savefig(output, transparent=True)
+        else:
+            plt.show()
+
 
     def plot_loading(self, params_topo=None, params_fit=None, output=False, fit=None):
         """
@@ -429,23 +462,25 @@ class StaMod():
         for pc_nb, param_topo, func in zip(range(1,self.nb_PC+1), params_topo, fit):
             elev_real = self.AttSta.getatt(self.df.keys(),param_topo) 
             fig, ax = plt.subplots()
-            plt.scatter(elev_real, self.eigenvectors.loc[pc_nb])
+            plt.scatter(self.eigenvectors.loc[pc_nb], elev_real)
 
             if isinstance(params_fit, pd.DataFrame):
                 x = np.linspace(min(elev_real), max(elev_real),100)
-                p = params_fit.loc[pc_nb,:]
+                p = params_fit.loc[pc_nb,:].dropna()
+                
                 y = func(x, *p)
 
-                plt.plot(x,y)
-                plt.title(param_topo+ "   " + str(pc_nb))
-                plt.grid(True)
+                plt.plot(y,x)
+                plt.xlabel('PC'+str(pc_nb)+' loadings')
+                plt.ylabel("Altitude (m)")
+                plt.grid(True, color='0.5')
             
             for i, txt in enumerate(self.df.columns):
-                ax.annotate(txt, (elev_real[i], self.eigenvectors.loc[pc_nb][i]))
+                ax.annotate(txt, (self.eigenvectors.loc[pc_nb][i], elev_real[i]))
             if output:
-                plt.savefig(output)
-            else:
-                plt.show()
+                plt.savefig(output+str(pc_nb)+'.pdf', transparent=True)
+
+        plt.show()
     
     def plot_scores(self, predictors, params_fit =None,fit=None, output=False):
         """
@@ -487,19 +522,68 @@ class StaMod():
         """
         scores = self.scores
         scores.plot()
-        plt.grid()
+        plt.xlabel('Time')
+        plt.ylabel("PCs time series")
+        plt.grid(True, color='0.5')
         if output:
-            plt.savefig(output)
+            plt.savefig(output, transparent=True)
         else:
             plt.show()
                  
-    def to_adas(self):
+    def to_adas(self, var, lat, lon, alt, date, hour, outpath=None):
         """
         DESCRIPTION
             Write a file in the ARPS ADAS format 
-        
+        PARAMETERS:
+            T: list, Temperature
+            lat: list, Latitude
+            lon: list, Longitude
+            alt: list, Altitude
+            date: Date of the observations, format: '%Y-%m-%d %H:%M:%S'
+            
+        TODO:
+            Adapt for other variables than temperature
         """  
-        pass
+        sep=7
+        nobs=len(var)
+
+        print nobs
+        id = "STA"
+        
+        
+        if not outpath:
+            outpath = '/home/thomas/surfass.lso'
+        
+        #------------------------------------------------------------------------------ 
+        #        Write file 
+        #------------------------------------------------------------------------------ 
+        f_out=open(outpath, 'w')
+        
+        #file header
+        f_out.write(" "+"{} {} {} {}{} {}\n".format(date.strftime('%d-%b-%Y'),hour.strftime('%H:%M:%S')+'.00',str(0).rjust(5),str(0).rjust(4),str(nobs).rjust(sep)*7,9999))
+        
+        for i in range(nobs):
+            #station header
+            f_out.write("{} {} {} {} {} {} {}\n".format(str(id).rjust(sep),np.around(lat[i],decimals=2),str(np.around(lon[i],decimals=2)).rjust(sep),
+                                                        str(np.around(alt[i],decimals=0)).rjust(5),str("SA").rjust(2),str(hour.strftime('%H%M')).rjust(10), "".rjust(8) ))
+            #Data variable:line1
+            f_out.write(" {} {} {} {} {} {} {} {} {}\n".format(str(np.round(var[i],decimals=1)).rjust(9),str(-99.9).rjust(6),str(-99.9).rjust(5),
+                                                               str(-99.9).rjust(5),str(-99.9).rjust(5),str(-99.9).rjust(5),str(-99.9).rjust(6),str(-99.9).rjust(6),str(-99.9).rjust(6)))
+            #Data variable:line2
+            f_out.write("{} {} {} {} {} {} {}\n".format(str(0).rjust(6),str(-99.9).rjust(7),str(-99.9).rjust(7),str(-99.9).rjust(5),str("-99.900").rjust(7),
+                                                        str(-99.9).rjust(6),str(-99).rjust(4)))
+        
+        #close the file
+        f_out.close()
+        
+        print("################################################################")
+        print("name of the output file: "+ outpath)
+        print("Variable: "+ id)
+        print("domain-> Lon(" + str(lon.min())+" to "+str(lon.max())+") Lat("+str(lat.min())+" to "+str(lat.max())+")")
+        print("Date:"+ str(date) + str(hour))
+        print("################################################################")
+        print("Sucessful!!")
+        print("################################################################")
 
     def to_swat(self):
         """
@@ -507,27 +591,235 @@ class StaMod():
             Write the ouput in the Swat input format
         """
 
-    def stepwise(self):
+    def predict_model(self,predictors_loadings, predictors_scores, params_loadings=None):
+        
+        
+        loadings = []
+        scores = []
+        predicted = []
+        
+        fit_loadings = self.fit_loadings
+        scores_model = self.scores_model
+
+        if not params_loadings :
+            print 'Getting parameters'
+            params_loadings, params_scores = self.get_params()
+
+
+        # NEED TO IMPLEMENT MATRIX MULTIPLICATION!!!!!!!!!!!!!! I use to much loop
+        for PC_nb, fit_loading, predictor_loadings in zip(range(1,self.nb_PC+1),fit_loadings,predictors_loadings):
+            
+            p = params_loadings[0].loc[PC_nb,:].dropna()
+            loading_est = fit_loading(predictor_loadings, *p)
+            
+            score_est = pd.Series(scores_model['model'][PC_nb].predict(predictors_scores.loc[:, scores_model['predictor'][PC_nb]]))
+            score = pd.concat([score_est] * len(loading_est), axis=1)
+            predict= score.multiply(loading_est)
+                        
+            loadings.append(loading_est)
+            scores.append( score_est)
+            predicted.append( predict)
+        
+        loadings = np.array(np.dstack(loadings))
+        scores = np.array(np.dstack(scores))
+        predicted = np.array(np.dstack(predicted))
+
+        
+        
+        res = {'loadings':loadings, 'scores':scores, 'predicted': predicted}
+        return res
+        
+    def stepwise(self, df, lim_nb_predictors=None):
+        """Linear model designed by forward selection.
+    
+        Parameters:
+        -----------
+        data : pandas DataFrame with all possible predictors and response
+    
+        response: string, name of response column in data
+    
+        Returns:
+        --------
+        model: an "optimal" fitted statsmodels linear model
+               with an intercept
+               selected by forward selection
+               evaluated by adjusted R-squared
+        """
+        models = []
+        predictors_name = []
+
+        print "O"*10
+        if lim_nb_predictors:
+            print "Number of predictors limited to " + str(lim_nb_predictors)
+        print "O"*10
+        
+        for column in self.scores:
+            PCA_score = self.scores[column]
+            PCA_nb = PCA_score.name
+
+            remaining = set(df.columns)
+            data = pd.concat([df, PCA_score], axis=1, join='inner')
+    
+            selected = []
+            current_score, best_new_score = 0.0, 0.0
+        
+            print "=="*20
+            print "Pc"+str(column)
+            print "=="*20
+            while remaining and current_score == best_new_score:
+                scores_with_candidates = []
+                for candidate in remaining:
+    
+                    score = sm.OLS(data[PCA_nb], data[selected + [candidate]]).fit().rsquared_adj
+                    scores_with_candidates.append((score, candidate))
+    
+                scores_with_candidates.sort()
+                best_new_score, best_candidate = scores_with_candidates.pop()
+
+                if len(selected) < lim_nb_predictors or not lim_nb_predictors:
+                    if current_score < best_new_score:
+                        remaining.remove(best_candidate)
+                        selected.append(best_candidate)
+                        print selected
+                        print best_new_score
+                        current_score = best_new_score
+    #         formula = "{} ~ {} + 1".format(response,
+    #                                        ' + '.join(selected))
+            model = sm.OLS(data[PCA_nb], data[selected]).fit()
+            models.append(model)
+            predictors_name.append(selected)
+        predictors_name = pd.Series(predictors_name)
+        models = pd.Series(models)
+
+        scores_model = pd.concat([predictors_name,models],axis=1)
+        scores_model.columns = ['predictor', 'model']
+        scores_model.index = range(1,self.nb_PC+1 )
+        self.scores_model = scores_model 
+        return self.scores_model
+
+    def skill_model(self, df_verif, res, metrics, params_loadings=None, params_scores=None,
+                     plot_bias=None, hours=False, plot_summary=False, summary=None):
         """
         DESCRIPTION
-            Perform stepwise linear regression with forward method.
-        Return
-            The best model based on the adjusted correlation score
+            Compute bias and RMSE to assess the model performance 
+        INPUT
+            df_verif: dataframe with the observed values
+            predictors: a list of pandas series which contains the predictors for the scores SHOULD NOT BE A LIST
+            metrics: sklearn metric function to be used
+                    see: http://scikit-learn.org/stable/modules/classes.html#sklearn-metrics-metrics
+                example:
+                    metrics.explained_variance_score(y_true, y_pred)     Explained variance regression score function
+                    metrics.mean_absolute_error(y_true, y_pred)     Mean absolute error regression loss
+                    metrics.mean_squared_error(y_true, y_pred[, ...])     Mean squared error regression loss
+                    metrics.median_absolute_error(y_true, y_pred)     Median absolute error regression loss
+                    metrics.r2_score(y_true, y_pred[, ...])     R^2 (coefficient of determination) regression score function.
+            summary: True, print the mean statistics
         """
+        if (not params_loadings or not params_scores):
+            params_loadings, params_scores = self.get_params()
 
-def pol(x, a, b, c):
+        data = res['predicted'].sum(axis=2)
+        df_rec = pd.DataFrame(data, columns = df_verif.columns, index =df_verif.index) # should improve this
+        
+        if not hours:
+            hours = df_rec.index.hour
+            hours = sorted(hours)
+            hours = list(set(hours))
+            hours = [str(str(hour)+':00').rjust(5, '0') for hour in hours]
+
+        score = pd.DataFrame(columns= df_rec.columns, index=hours)
+
+        for hour in hours:
+            for sta in df_rec:
+                df = pd.concat([df_verif[sta], df_rec[sta]], axis=1, join='inner')
+                df = df.between_time(hour,hour)
+                df = df.dropna(axis=0)
+                
+                if plot_bias:
+                    df.columns=['True', 'Pred']
+                    
+                    res = df['True'] - df['Pred']
+    
+                    res.plot()
+                    plt.title(sta)
+                    plt.show()
+                score.loc[hour,sta] = metrics(df.iloc[:,0], df.iloc[:,1])
+
+        if summary:
+            score.loc['Total_hours',:] = score.mean(axis=0)
+            score.loc[:,'Total_stations'] = score.mean(axis=1)
+            if plot_summary:
+                plt.figure()
+                c = plt.pcolor(score, cmap="bwr")
+                plt.colorbar()
+                show_values(c)
+                plt.title("Validation summary")
+#                 print type(score)
+#                 sns.heatmap(score)
+                plt.yticks(np.arange(0.5, len(score.index), 1), score.index, fontsize=14)
+                plt.xticks(np.arange(0.5, len(score.columns), 1), score.columns, fontsize=14)
+                plt.show()
+                print score
+        return score
+
+def show_values(pc, fmt="%.2f", **kw):
+    from itertools import izip
+    pc.update_scalarmappable()
+    ax = pc.get_axes()
+    for p, color, value in izip(pc.get_paths(), pc.get_facecolors(), pc.get_array()):
+        x, y = p.vertices[:-2, :].mean(0)
+        if np.all(color[:3] > 0.5):
+            color = (0.0, 0.0, 0.0)
+        else:
+            color = (1.0, 1.0, 1.0)
+        ax.text(x, y, fmt % value, ha="center", va="center",fontsize=14, color=color, **kw)
+
+
+
+#def piecewise_linear(x, k1, k2, x0=1100, y0=0.4):
+#    return np.piecewise(x, [x < x0], [lambda x:k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0])
+
+
+def piecewise_linear(x, k1, k2, x0, y0): # need to be improve!!!!!!!!!!!!!!!
+    return np.piecewise(x, [x < 1100], [lambda x:k1*x + 0.5-k1*1100, lambda x:k2*x + 0.5-k2*1100])
+
+def piecewise_linear2(x, k1, k2, x0, y0): # need to be improve!!!!!!!!!!!!!!!
+    return np.piecewise(x, [x < 1100], [lambda x:k1*x + 0.5-k1*1100, lambda x:k2*x + 0.5-k2*1100])
+
+
+
+
+def pol2(x, a, b, c):
     """
     Polynomial function
     """
-    return a*x + x**b +c
+    return a*x + b*x**2+c
+
+def pol3(x, a, b, c,d):
+    """
+    Polynomial function
+    """
+    return a*x + b*x**2 +c*x**3 +d
+
+def pol4(x, a, b, c,d,h):
+    """
+    Polynomial function
+    """
+    return a*x + b*x**2 +c*x**3+d*x**4+h
 
 def lin(x, a, b):
     """
     linear function function
     """
     return a*x +b
-    
-    
+
+def exp(x,a,b,c):    
+    return a * np.exp(-b * x) +c
+
+from scipy.misc import factorial
+def poisson(k, lamb):
+    return (lamb**k/factorial(k)) * np.exp(-lamb)
+
 def theta(T,P):
     """
     Compute Potential temperature
@@ -564,335 +856,10 @@ def froude(br, U, H):
      
     return F
     
-
-if __name__ == '__main__':
+def mean_error(y_true, y_pred):
+    return (y_pred - y_true).mean()
     
-#     #===========================================================================
-#     # Fitting the model
-#     #===========================================================================
-    var = "Ta C"
-    AttSta = att_sta(Path_att='/home/thomas/params_topo.csv')
-    From = "2015-03-01 00:00:00"
-    To = "2016-01-01 00:00:00"
-    Lat = [-25,-21]
-    Lon = [-48, -45]
-    Alt = [400,5000]
-       
-    InPath='/home/thomas/PhD/obs-lcb/LCBData/obs/Full/'
-    # Files=glob.glob(InPath+"*")
-    AttSta.setInPaths(InPath)
-         
-          
-    station_names =AttSta.stations(['Ribeirao'])
-#     [station_names.remove(k) for k in ['C06','C11','C10','C12','C09', 'C08']] # Tmax Value error on the C10
-    [station_names.remove(k) for k in ['C18','C17','C09']] # Tmin
-#     [station_names.remove(k) for k in [ 'C16','C19']] # daily humidity
-#     [station_names.remove(k) for k in [ 'C09','C06','C11','C12','C16']] # daily wind # 
-#     [station_names.remove(k) for k in [ 'C10','C11','C12']]
-#     [station_names.remove(k) for k in ['C18']]
-#     [station_names.remove(k) for k in [ 'C09','C05']] # Daily U wind # 
-#     [station_names.remove(k) for k in [ 'C09','C13', 'C05']] #  U night
-#     [station_names.remove(k) for k in [ 'C09','C13']] # daily humidity only head
-    # station_names.append('C10')
-    # station_names =station_names + AttSta.stations(['Head', 'valley'])
-    Files =AttSta.getatt(station_names,'InPath')
-    net_LCB=LCB_net()
-    net_LCB.AddFilesSta(Files)
-#     net_LCB.dropstanan(perc=20, From=From, To = To)
-        
-#     X_LCB = net_LCB.getvarallsta(var=var, by='D')
-#     X_LCB.plot()
-    X_LCB = net_LCB.getvarallsta(var=var, by='D', how='min')
-#     X_LCB.plot()
-#     plt.show()
-#     X_LCB = net_LCB.getvarallsta(var=var, by='D', how='max')
-#     X_LCB.plot()
-#     plt.show()
-#     X_LCB = net_LCB.getvarallsta(var=var, by='H')
-       
-#     X_LCB = X_LCB.between_time('14:00','14:00')
-#     X_LCB = net_LCB.getvarallsta(var=var, by='D')
     
-    X = X_LCB.dropna(axis=0,how='any')
-    params = pd.read_csv('/home/thomas/PhD/supmod/PCA_data/params_topo.csv', index_col=0)
-       
-    df_verif = X[:50]
-    df_train = X[50:]
-       
-    stamod = StaMod(df_train, AttSta)
-    stamod.pca_transform(nb_PC=3, standard=False)
-       
-    stamod.plot_scores_ts()
-#     stamod.pca_reconstruct()
-
-#     params_loadings =  stamod.fit_loadings()
-#     print params
-#     
-#     stamod.plot_loading(params = params_loadings, params_topo= ["Alt","Alt","Alt"])
-
-#     params_loadings =  stamod.fit_loadings(params=["xx8_10000_8000____","xx8_10000_8000____","xx8_10000_8000____"], param_seps=[50,50,0])
-#     print params_loadings
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["xx8_10000_8000____","xx8_10000_8000____","xx8_10000_8000____"])
-#     params_loadings =  stamod.fit_loadings(params=["Alt","Alt","Alt"], param_seps=[1220,1220,1220])
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["Alt","Alt","Alt"])
     
-
-#     
-#     def lin(x, a, b, c=0):
-#         return a*x + b +c
-
-#     params_loadings =  stamod.fit_loadings(params=["Alt","Alt","Alt"], curvfit=pol)
-#     print params_loadings
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["Alt","Alt","Alt"], curvfit=pol)
-#     
-# #     
-#     params_loadings =  stamod.fit_loadings(params=["topex","topex","topex"], curvfit=lin)
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["topex","topex","topex"], curvfit=lin)
-#      
-#     params_loadings =  stamod.fit_loadings(params=["topex_n","topex_n","topex_n"])
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["topex_n","topex_n","topex_n"])
-#      
-#     params_loadings =  stamod.fit_loadings(params=["topex_s","topex_s","topex_s"])
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["topex_s","topex_s","topex_s"])
-# # #         
-#      
-#     params_loadings =  stamod.fit_loadings(params=["topex_w","topex_w","topex_w"])
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["topex_w","topex_w","topex_w"])
-# # #      
-#     params_loadings =  stamod.fit_loadings(params=["topex_e","topex_e","topex_e"])
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["topex_e","topex_e","topex_e"])
-# #      
-#     params_loadings =  stamod.fit_loadings(params=["topex_ne","topex_ne","topex_ne"], curvfit=func)
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["topex_ne","topex_ne","topex_ne"], curvfit=func)
-# #       
-#     params_loadings =  stamod.fit_loadings(params=["topex_nw","topex_nw","topex_nw"])
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["topex_nw","topex_nw","topex_nw"])
-#       
-#     params_loadings =  stamod.fit_loadings(params=["topex_se","topex_se","topex_se"], curvfit=func)
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["topex_se","topex_se","topex_se"], curvfit=func)
-# # #      
-#     params_loadings =  stamod.fit_loadings(params=["topex_sw","topex_sw","topex_sw"])
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["topex_sw","topex_sw","topex_sw"])
-#       
-
-#     params_loadings =  stamod.fit_loadings(params=["xx8_20000_18000____","xx8_20000_18000____","xx8_20000_18000____"], param_seps=[50,50,0])
-#     print params_loadings
-#     stamod.plot_loading(params = params_loadings[0], params_topo= ["xx8_20000_18000____","xx8_20000_18000____","xx8_20000_18000____"])
-  
-#     stamod.pca_reconstruct()
-#        
-#        
-#     inpath = "/home/thomas/PhD/supmod/PCA_data/"
-
-
-
     
-    inpath = "/home/thomas/"        
-    df_gfs = pd.read_csv(inpath+'gfs_data.csv', index_col =0, parse_dates=True )
-#     df_gfs = df_gfs.between_time('15:00','15:00')
-#     df_gfs = df_gfs.resample("D").mean()
-#     print df_gfs
-
- #==============================================================================
- # Froude number -> To be implemented in LCBnet_lib or 
- #==============================================================================
-
-
-#     t1 = df_gfs['TMP_2maboveground']-273.15
-#     t2 = df_gfs['TMP_80maboveground']-273.15
-#     p1 = df_gfs['PRES_surface']*10**-2
-#     p2 = df_gfs['PRES_80maboveground']*10**-2
-#     u_mean = (df_gfs['UGRD_10maboveground'] + df_gfs['UGRD_80maboveground'])/2
-#     v_mean = (df_gfs['VGRD_10maboveground'] + df_gfs['VGRD_80maboveground'])/2
-     
-
-    df_gfs_r = df_gfs.between_time('03:00','03:00')
-    df_gfs_r = df_gfs_r.resample("D").mean()
-    t1 = df_gfs_r['TMP_900mb']-273.15
-    t2 = df_gfs_r['TMP_850mb']-273.15
-    p1 = 900.
-    p2 = 850
-    u_mean = (df_gfs_r['UGRD_850mb'] + df_gfs_r['UGRD_900mb'])/2
-    v_mean = (df_gfs_r['VGRD_850mb'] + df_gfs_r['VGRD_900mb'])/2
- 
-    mean_speed , mean_dir = cart2pol(u_mean, v_mean)
-    theta1 = theta(t1, p1)
-    theta2 = theta(t2, p2)
-       
-    br = br(theta1, theta2, 2, 80)  
-    fr = froude(br, mean_speed, 80.)
-    plt.plot(fr)
-    plt.show()
-
-#===============================================================================
-# Wind speed
-#===============================================================================
-#     params_scores = stamod.fit_scores(df_gfs['TMP_2maboveground'])
-#     stamod.plot_scores(df_gfs['TMP_2maboveground'])
-
-#     mean_speed , mean_dir = cart2pol( df_gfs['UGRD_10maboveground'],  df_gfs['VGRD_10maboveground'])
-#     mean_speed , mean_dir = cart2pol( df_gfs['UGRD_850mb'],  df_gfs['VGRD_850mb'])
-#     
-#     
-#     U_rot, V_rot = PolarToCartesian(mean_speed,mean_dir, rot=-45)
-#      
-#     plt.scatter(V_rot,df_gfs['VGRD_850mb'])
-#     plt.show()
-     
-#     mean_speed , mean_dir = cart2pol( U_rot, V_rot)
-
-#     params_scores = stamod.fit_scores(mean_speed)
-#     stamod.plot_scores(mean_speed)
-#     
     
-#     print 'VGRD_850mb'
-#     params_scores = stamod.fit_scores(df_gfs['VGRD_850mb'])
-#     stamod.plot_scores(df_gfs['VGRD_850mb'])
-#     
-#     print 'UGRD_850mb'
-#     params_scores = stamod.fit_scores(df_gfs['TMP_850mb'])
-#     stamod.plot_scores(df_gfs['TMP_850mb'])
-# #     
-#     print 'Urot'
-#     params_scores = stamod.fit_scores(U_rot)
-#     stamod.plot_scores(U_rot)
-# 
-#     print 'Vrot'
-#     params_scores = stamod.fit_scores(V_rot)
-#     stamod.plot_scores(V_rot)
-#===============================================================================
-# 
-#===============================================================================
-
-#     params_scores = stamod.fit_scores(df_gfs['TMP_850mb'])
-#     stamod.plot_scores(df_gfs['TMP_850mb'])
-
-#     params_scores = stamod.fit_scores(df_gfs['RH_800mb'])
-#     stamod.plot_scores(df_gfs['RH_800mb'])
-#     
-#     params_scores = stamod.fit_scores(df_gfs['RH_850mb'])
-#     stamod.plot_scores(df_gfs['RH_850mb'])
-#     
-#     params_scores = stamod.fit_scores(df_gfs['RH_900mb'])
-#     stamod.plot_scores(df_gfs['RH_900mb'])
-#     
-#     params_scores = stamod.fit_scores(df_gfs['RH_950mb'])
-#     stamod.plot_scores(df_gfs['RH_950mb'])    
-    
-#     
-#     params_scores = stamod.fit_scores(df_gfs['TMP_2maboveground'])
-#     stamod.plot_scores(df_gfs['TMP_2maboveground'])
-#     
-#     params_scores = stamod.fit_scores(df_gfs['VGRD_850mb'])
-#     stamod.plot_scores(df_gfs['VGRD_850mb'])
-
-
-# #   
-#     #===========================================================================
-#     # Downscalling 
-#     #===========================================================================
-#     elev  = np.loadtxt('/home/thomas/PhD/supmod/PCA_data/100_15rasterelev.txt',delimiter=',')
-#    
-#     df = pd.concat([X, df_gfs['VVEL_950mb']], axis=1, join='inner')
-#     maps = stamod.predict( elev,df_gfs['VVEL_950mb'][100])
-# #     print maps['predicted'].shape
-# #     print maps['predicted'].mean(axis=2).shape
-#       
-#        
-# #     plt.contourf(elev, cmap='plasma')
-# #     plt.colorbar()
-# #     plt.show()
-# #     plt.contourf(maps['loadings'][:,:,0], cmap='plasma')
-# #     plt.colorbar()
-# #     plt.show() 
-# #     plt.contourf(maps['loadings'][:,:,1], cmap='plasma')
-# #     plt.colorbar()
-# #     plt.show()
-#     
-#     
-# #     df = pd.concat([X, df_gfs['TMP_950mb']], axis=1, join='inner')
-# #     print df
-# #     print X
-# #     print df_gfs['TMP_950mb'].index["2015-12-21 03:00:00"]
-# #     print df_gfs['TMP_950mb']["2015-12-21 03:00:00"]
-# #     print X['C08'][df_gfs['TMP_950mb'].index["2015-12-21 03:00:00"]]
-# #     print df.ix[100,:]
-# #   
-# #     print maps['scores']
-#   
-#     plt.contourf(maps['predicted'][:,:,0], cmap='plasma', 
-#                  levels=np.linspace(maps['predicted'][:,:,0].min(), maps['predicted'][:,:,0].max(),50))
-#     plt.colorbar()
-#     plt.show()
-#     plt.contourf(maps['predicted'][:,:,1], cmap='plasma',
-#                  levels=np.linspace(maps['predicted'][:,:,1].min(), maps['predicted'][:,:,1].max(),50))
-#     plt.colorbar()
-#     plt.show()
-#             
-#     plt.contourf(maps['predicted'].sum(axis=2), cmap='plasma',
-#                  levels=np.linspace(maps['predicted'].sum(axis=2).min(), maps['predicted'].sum(axis=2).max(),50))
-#     plt.colorbar()
-#     plt.show()
-# #      
-# #     stamod.plot_scores_ts()
-#     
-#     #===========================================================================
-#     # Verification
-#     #===========================================================================
-# #     MAE =  stamod.skill(df_verif, df_gfs['TMP_950mb'], metrics = metrics.mean_absolute_error)
-# #     MSE =  stamod.skill(df_verif, df_gfs['TMP_950mb'], metrics = metrics.mean_squared_error)
-# #     print MAE
-# #     print MSE
-#      
-#        
-#      
-#      
-# 
-# 
-
-
-#===============================================================================
-# TEST fit loadings
-#=============================================================================== 
-
- 
-# x = np.array([1186, 1061, 1075, 1225, 1356, 1113, 1069, 1140, 1206, 1127, 1077, 1031, 1005, 1078, 1342, 1279])
-# x = x - x.min()
- 
-# y = np.array([ 0.2209593 ,  0.27516488,  0.26320392,  0.21992121,  0.22812927, 0.25035334,  0.25173381,  0.2475554 ,  0.2272659 ,  0.25835837,
-#               0.26348386,  0.28175971,  0.30190411,  0.25368362,  0.21802705, 0.21954021])
- 
- 
-# z = sorted(zip(x,y))
-# x, y = zip(*z)
-# 
-# x = np.array(x)
-# y = np.array(y)
- 
-# def f_lin(x, a, b):
-#     return a*x + b
- 
-# def f_pol(x, a, b,c):
-#     return a*x + x**b +c
- 
-# def f_log(x, a, b, c):
-#     return a*np.log(x) + b
-#  
-# def f_exp(x,a,b,c):
-#     return a*np.exp(-b*x) + c
- 
-# plt.scatter(x,y, c='r')
- 
-# popt, pcov = curve_fit(f_lin, x, y)
-# print popt
-# plt.scatter(x, f_lin(x, *popt), c='b')
-     
-# popt, pcov = curve_fit(f_pol, x, y)
-# plt.scatter(x, f_pol(x, *popt), c='g')
- 
-# popt, pcov = curve_fit(f_log, x, y)
-# plt.scatter(x, f_log(x, *popt), c='k')  
-# #     
-# popt, pcov = curve_fit(f_exp, x, y, p0=[1,1,0.3])
-# plt.scatter(x, f_exp(x, *popt), c='k')    
-#     
