@@ -239,7 +239,7 @@ if __name__=='__main__':
     var = "Ta C"
     station_names =AttSta.stations(['Ribeirao'])
 #     station_names=['C10','C04','C05','C06','C07','C08','C09','C11','C12','C13','C14','C15']
-#     station_names=['C10','C04','C05','C07','C08','C09','C13','C14','C15']
+#     station_names=['C10','C04','C05','C07','C08',https://soundcloud.com/paulhm'C09','C13','C14','C15']
 #     print station_names
 #     [station_names.remove(k) for k in ['C11','C12','C06']] # Tmin  
     Files =AttSta.getatt(station_names,'InPath')

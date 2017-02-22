@@ -7,10 +7,13 @@ from statmod_lib import *
 from LCBnet_lib import *
 from mapstations import plot_local_stations
 from numpy.testing.utils import measure
-import datetime 
-
+import datetime
+import pickle
+import sys
 
 if __name__=='__main__':
+    plt.style.use('ggplot')
+
  
     AttSta = att_sta()
 #     AttSta.addatt(path_df = '/home/thomas/arps_coldpool.csv')
@@ -119,8 +122,11 @@ if __name__=='__main__':
 #     print df_svg
     df = pd.concat([df_iac,df_LCB, df_peg, df_svg], axis=1)
 #     df = df.between_time('12:00','12:00')
-#     df.plot()
-#     plt.show()   
+    df.plot(legend=False)
+    plt.xlabel('Date')
+    plt.ylabel('Temperture (C)')
+    
+    plt.show()   
    
 #     df = df.fillna(df.mean(), axis=0)
     df = df.dropna(axis=0,how='any') 
@@ -150,35 +156,85 @@ if __name__=='__main__':
 #     df_gfs_verif = df_gfs[df_gfs.index.isin(df_verif.index)]
 #     df_verif = df_verif[df_verif.index.isin(df_gfs_verif.index)]
   
-# #===========================================================================
-# # Create model
+#===========================================================================
+# Create model
 # #=========================================================================== 
 #------------------------------------------------------------------------------ 
 #    PCA
 #------------------------------------------------------------------------------ 
     stamod = StaMod(df, AttSta)
-    stamod.pca_transform(nb_PC=10, standard=False, center =False)
-#     stamod.plot_exp_var()
+    stamod.pca_transform(nb_PC=4, standard=False, center =False)
+    stamod.plot_exp_var()
+    
     stamod.plot_scores_ts()
-   
-#------------------------------------------------------------------------------ 
-#    Fit loadings
-#------------------------------------------------------------------------------ 
-    # FIT LOADINGS
-    params_loadings = stamod.fit_loadings(params=["Alt","Alt","Alt","Alt","Alt","Alt","Alt","Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,pol2, lin, lin, lin, lin, lin, lin, lin])
-    stamod.plot_loading(params_fit = params_loadings[0],params_topo= ["Alt","Alt","Alt","Alt","Alt","Alt","Alt","Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,pol2, lin, lin, lin, lin, lin, lin, lin])
-  
-  
+#     stamod.scores.to_csv('/home/thomas/scores_pca_sta.csv')
+#     
+# #------------------------------------------------------------------------------ 
+# #    Fit loadings
+# #------------------------------------------------------------------------------ 
+#     # FIT LOADINGS
+    params_loadings = stamod.fit_loadings(params=["Alt","Alt","Alt","Lon","Alt","Alt","Alt","Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,pol2, lin, lin, lin, lin, lin, lin, lin])
+    stamod.plot_loading(params_fit = params_loadings[0],params_topo= ["Alt","Alt","Alt","Lat","Alt","Alt","Alt","Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,pol2, lin, lin, lin, lin, lin, lin, lin])
+    
     fig, ax = plt.subplots()
     plt.scatter(stamod.eigenvectors.loc[3,:], stamod.eigenvectors.loc[4,:])
     for i, txt in enumerate(stamod.eigenvectors.columns):
                 ax.annotate(txt, (stamod.eigenvectors.iloc[2,i], stamod.eigenvectors.iloc[3,i]))
     plt.show()
+    pickle.dump(stamod.eigenvectors, open( "save.p", "wb" ))
+
+
+
+#===============================================================================
+# TEST ARPS index
+#===============================================================================
+    latsarps = pd.read_csv('/home/thomas/Lat.csv', index_col=0, header=None)
+    lonsarps = pd.read_csv('/home/thomas/Lon.csv', index_col=0, header=None)
+    
+
+    latsarps = latsarps.iloc[1,:].values
+    lonsarps = lonsarps.iloc[1,:].values
+    print lonsarps
+    
+    print latsarps.min()
+    print latsarps.max()
+    print lonsarps.min()
+    print lonsarps.max()
+    
+    arps_corr_pc2 = pd.read_csv('/home/thomas/arps_corr_PC2.csv', index_col=0, header=None)
+     
+    def geo_idx(dd, dd_array):
+        """
+          search for nearest decimal degree in an array of decimal degrees and return the index.
+          np.argmin returns the indices of minium value along an axis.
+          so subtract dd from all values in dd_array, take absolute value and find index of minium.
+         """
+
+        geo_idx = (np.abs(dd_array - dd)).argmin()
+        return geo_idx
+ 
+    stalats = np.array(AttSta.getatt(df.columns, "Lat")).astype(np.float)
+    stalons = np.array(AttSta.getatt(df.columns, "Lon")).astype(np.float)
+    print stalats
+ 
+    lat_idx = []
+    lon_idx = []
+     
+    for lat,lon in zip(stalats, stalons):
+         
+        lat_idx.append(geo_idx(float(lat), latsarps))
+        lon_idx.append(geo_idx(float(lon), lonsarps))
+
+    arps_corr_pc2 = np.reshape(arps_corr_pc2.values, (1201,1201))
+    plt.scatter(arps_corr_pc2[lon_idx, lat_idx], stamod.eigenvectors.iloc[2,:])
+    plt.show()
+ 
+ 
 #------------------------------------------------------------------------------ 
 #    Fit PCs
 #------------------------------------------------------------------------------ 
 #     stamod.stepwise(df_gfs_train,lim_nb_predictors=4)
- 
+  
 # #===============================================================================
 # # Field Results
 # # #===============================================================================

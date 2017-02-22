@@ -31,8 +31,8 @@ if __name__=='__main__':
     #===========================================================================
     var = "Rc mm"
     station_names =AttSta.stations(['Ribeirao'])
-#     [station_names.remove(k) for k in ['C05']] # Rc mmHEAd
-#     [station_names.remove(k) for k in ['C05','C17']] # Rc mm Ribeirao
+#     [station_names.remove(k) for k in ['C05']] # Rc mm
+#     [station_names.remove(k) for k in ['C05','C17']] # Rc mm
           
     Files =AttSta.getatt(station_names,'InPath')
     net_LCB=LCB_net()
