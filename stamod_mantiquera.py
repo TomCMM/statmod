@@ -3,9 +3,10 @@
 #    Downscale climatic variable in the Serra Da Mantiquera, Serra do Mar from the 
 #    Global Forecasting System to make input for the meteorological model ARPS
 #===============================================================================
+
 from statmod_lib import *
-from LCBnet_lib import *
-from mapstations import plot_local_stations
+from clima_lib.LCBnet_lib import *
+# from mapstations import plot_local_stations
 from numpy.testing.utils import measure
 import datetime
 import pickle
@@ -13,34 +14,35 @@ import sys
 
 if __name__=='__main__':
     plt.style.use('ggplot')
-
- 
+    import os
+    cwd = os.getcwd()
+    print cwd
     AttSta = att_sta()
 #     AttSta.addatt(path_df = '/home/thomas/arps_coldpool.csv')
 #     AttSta.addatt(path_df ='/home/thomas/params_topo.csv')
     var = 'Ta C'
     From = "2015-03-01 00:00:00"
-    To = "2015-12-01 00:00:00"
+    To = "2015-11-15 00:00:00"
       
 #     path_gfs = "/home/thomas/"        
 #     df_gfs = pd.read_csv(path_gfs+'gfs_data.csv', index_col =0, parse_dates=True ) # GFS data
   
   
-#===============================================================================
-# Create GFS predictors dataframe
-#===============================================================================
-    path_gfs = "/home/thomas/"        
-    df_gfs = pd.read_csv(path_gfs+'gfs_data_levels_analysis.csv', index_col =0, parse_dates=True ) # GFS data
-    del  df_gfs['dirname']
-    del  df_gfs['basename']
-    del  df_gfs['time']
-    del  df_gfs['model']
-    del  df_gfs['InPath']
-    df_gfs = df_gfs.dropna(axis=1,how='all') 
-    df_gfs = df_gfs.dropna(axis=0,how='all')
-    print df_gfs
- 
-  
+# #===============================================================================
+# # Create GFS predictors dataframe
+# #===============================================================================
+#     path_gfs = "/home/thomas/"        
+#     df_gfs = pd.read_csv(path_gfs+'gfs_data_levels_analysis.csv', index_col =0, parse_dates=True ) # GFS data
+#     del  df_gfs['dirname']
+#     del  df_gfs['basename']
+#     del  df_gfs['time']
+#     del  df_gfs['model']
+#     del  df_gfs['InPath']
+#     df_gfs = df_gfs.dropna(axis=1,how='all') 
+#     df_gfs = df_gfs.dropna(axis=0,how='all')
+#     print df_gfs
+#  
+#   
 #===============================================================================
 # Create surface observations dataframe
 #===============================================================================
@@ -66,11 +68,11 @@ if __name__=='__main__':
     net_peg =  LCB_net()
                  
 #     Path_Sinda = '/home/thomas/PhD/obs-lcb/staClim/Sinda/obs_clean/Sinda/'
-    Path_INMET ='/home/thomas/PhD/obs-lcb/staClim/INMET-Master/full/'
-    Path_IAC ='/home/thomas/PhD/obs-lcb/staClim/IAC-Monica/full/'
-    Path_LCB='/home/thomas/PhD/obs-lcb/LCBData/obs/Full_sortcorr/'
-    Path_svg='/home/thomas/PhD/obs-lcb/staClim/svg/SVG_2013_2016_Thomas_30m.csv'
-    Path_peg='/home/thomas/PhD/obs-lcb/staClim/peg/Th_peg_tar30m.csv'
+    Path_INMET ='/home/thomas/phd/obs/staClim/inmet/full/'
+    Path_IAC ='/home/thomas/phd/obs/staClim/iac/data/full/'
+    Path_LCB='/home/thomas/phd/obs/lcbdata/obs/full_sortcorr/'
+    Path_svg='/home/thomas/phd/obs/staClim/svg/SVG_2013_2016_Thomas_30m.csv'
+    Path_peg='/home/thomas/phd/obs/staClim/peg/Th_peg_tar30m.csv'
     
     AttSta_IAC = att_sta()
     AttSta_Inmet = att_sta()
@@ -122,14 +124,17 @@ if __name__=='__main__':
 #     print df_svg
     df = pd.concat([df_iac,df_LCB, df_peg, df_svg], axis=1)
 #     df = df.between_time('12:00','12:00')
-    df.plot(legend=False)
-    plt.xlabel('Date')
-    plt.ylabel('Temperture (C)')
-    
-    plt.show()   
+#     df = df.resample("H").mean()
+#     df = df.T
+#     df.plot(legend=False)
+#     plt.xlabel('Date')
+#     plt.ylabel('Temperture (C)')
+#     
+#     plt.show()   
    
 #     df = df.fillna(df.mean(), axis=0)
-    df = df.dropna(axis=0,how='any') 
+    df = df.dropna(axis=0,how='any')
+    df.to_csv('../data/neuralnetwork/df_sta.csv')
   
 #===============================================================================
 # Create train and verify dataframe
@@ -163,16 +168,21 @@ if __name__=='__main__':
 #    PCA
 #------------------------------------------------------------------------------ 
     stamod = StaMod(df, AttSta)
-    stamod.pca_transform(nb_PC=4, standard=False, center =False)
+    stamod.pca_transform(nb_PC=6, standard=True, center =True)
     stamod.plot_exp_var()
     
     stamod.plot_scores_ts()
-#     stamod.scores.to_csv('/home/thomas/scores_pca_sta.csv')
-#     
+    stamod.scores.astype(float).to_csv('../data/neuralnetwork/scores_pca_sta_coldpool_fullperiod.csv',float_format=True)
+#     stamod.eigenvectors.iloc[:,:].to_csv('../data/neuralnetwork/loadings_pca_sta_coldpool.csv')
+    stamod.eigenvectors.T.astype(float).to_csv('../data/neuralnetwork/loadings_pca_sta_coldpool_fullperiod.csv',  float_format=True)
+
+#     print stamod.eigenvectors.iloc[:,:]
+#     stamod.eigenvectors.T.iloc[:,:].plot()
+#     plt.show()
+    
 # #------------------------------------------------------------------------------ 
 # #    Fit loadings
 # #------------------------------------------------------------------------------ 
-#     # FIT LOADINGS
     params_loadings = stamod.fit_loadings(params=["Alt","Alt","Alt","Lon","Alt","Alt","Alt","Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,pol2, lin, lin, lin, lin, lin, lin, lin])
     stamod.plot_loading(params_fit = params_loadings[0],params_topo= ["Alt","Alt","Alt","Lat","Alt","Alt","Alt","Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,pol2, lin, lin, lin, lin, lin, lin, lin])
     
@@ -183,52 +193,57 @@ if __name__=='__main__':
     plt.show()
     pickle.dump(stamod.eigenvectors, open( "save.p", "wb" ))
 
+# #     
+# #     
+#     
+#     pickle.dump(stamod.eigenvectors, open( "save.p", "wb" ))
 
 
-#===============================================================================
-# TEST ARPS index
-#===============================================================================
-    latsarps = pd.read_csv('/home/thomas/Lat.csv', index_col=0, header=None)
-    lonsarps = pd.read_csv('/home/thomas/Lon.csv', index_col=0, header=None)
-    
-
-    latsarps = latsarps.iloc[1,:].values
-    lonsarps = lonsarps.iloc[1,:].values
-    print lonsarps
-    
-    print latsarps.min()
-    print latsarps.max()
-    print lonsarps.min()
-    print lonsarps.max()
-    
-    arps_corr_pc2 = pd.read_csv('/home/thomas/arps_corr_PC2.csv', index_col=0, header=None)
-     
-    def geo_idx(dd, dd_array):
-        """
-          search for nearest decimal degree in an array of decimal degrees and return the index.
-          np.argmin returns the indices of minium value along an axis.
-          so subtract dd from all values in dd_array, take absolute value and find index of minium.
-         """
-
-        geo_idx = (np.abs(dd_array - dd)).argmin()
-        return geo_idx
- 
-    stalats = np.array(AttSta.getatt(df.columns, "Lat")).astype(np.float)
-    stalons = np.array(AttSta.getatt(df.columns, "Lon")).astype(np.float)
-    print stalats
- 
-    lat_idx = []
-    lon_idx = []
-     
-    for lat,lon in zip(stalats, stalons):
-         
-        lat_idx.append(geo_idx(float(lat), latsarps))
-        lon_idx.append(geo_idx(float(lon), lonsarps))
-
-    arps_corr_pc2 = np.reshape(arps_corr_pc2.values, (1201,1201))
-    plt.scatter(arps_corr_pc2[lon_idx, lat_idx], stamod.eigenvectors.iloc[2,:])
-    plt.show()
- 
+# 
+# #===============================================================================
+# # TEST ARPS index
+# #===============================================================================
+#     latsarps = pd.read_csv('/home/thomas/Lat.csv', index_col=0, header=None)
+#     lonsarps = pd.read_csv('/home/thomas/Lon.csv', index_col=0, header=None)
+#     
+# 
+#     latsarps = latsarps.iloc[1,:].values
+#     lonsarps = lonsarps.iloc[1,:].values
+#     print lonsarps
+#     
+#     print latsarps.min()
+#     print latsarps.max()
+#     print lonsarps.min()
+#     print lonsarps.max()
+#     
+#     arps_corr_pc2 = pd.read_csv('/home/thomas/arps_corr_PC2.csv', index_col=0, header=None)
+#      
+#     def geo_idx(dd, dd_array):
+#         """
+#           search for nearest decimal degree in an array of decimal degrees and return the index.
+#           np.argmin returns the indices of minium value along an axis.
+#           so subtract dd from all values in dd_array, take absolute value and find index of minium.
+#          """
+# 
+#         geo_idx = (np.abs(dd_array - dd)).argmin()
+#         return geo_idx
+#  
+#     stalats = np.array(AttSta.getatt(df.columns, "Lat")).astype(np.float)
+#     stalons = np.array(AttSta.getatt(df.columns, "Lon")).astype(np.float)
+#     print stalats
+#  
+#     lat_idx = []
+#     lon_idx = []
+#      
+#     for lat,lon in zip(stalats, stalons):
+#          
+#         lat_idx.append(geo_idx(float(lat), latsarps))
+#         lon_idx.append(geo_idx(float(lon), lonsarps))
+# 
+#     arps_corr_pc2 = np.reshape(arps_corr_pc2.values, (1201,1201))
+#     plt.scatter(arps_corr_pc2[lon_idx, lat_idx], stamod.eigenvectors.iloc[2,:])
+#     plt.show()
+#  
  
 #------------------------------------------------------------------------------ 
 #    Fit PCs

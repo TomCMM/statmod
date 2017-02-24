@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import math
 import glob
-from LCBnet_lib import *
+from clima_lib.LCBnet_lib import *
 import statsmodels.api as sm
 # import seaborn as sns
 # sns.set()
@@ -23,8 +23,8 @@ from sklearn.cross_decomposition import PLSRegression
 # sklearn.preprocessing.Imputer
 from scipy.stats.stats import pearsonr   
 
-from LCBnet_lib import *
-from Irradiance import Irradiance_sim_obs
+from clima_lib.LCBnet_lib import *
+# from clima_lib.Irradiance import Irradiance_sim_obs
 import glob
 from compiler.ast import Const
 from sklearn import metrics
@@ -33,7 +33,7 @@ from scipy.optimize import curve_fit
 import statsmodels.api as sm
 
 from matplotlib.ticker import MaxNLocator
-LCB_Irr = Irradiance_sim_obs.LCB_Irr
+# LCB_Irr = Irradiance_sim_obs.LCB_Irr
 
 
 class StaMod():
