@@ -34,15 +34,40 @@ if __name__=='__main__':
         dfPT.index = dfPT.index.to_datetime()
         return dfPT
 
+    files = [
+             "~/phd/statmod/data/model_data/P_arps_1.csv",
+            "~/phd/statmod/data/model_data/P_arps_2.csv",
+#              "~/phd/statmod/data/model_data/P_arps_3.csv",
+#              "~/phd/statmod/data/model_data/P_arps_4.csv",
+#              "~/phd/statmod/data/model_data/24fev/P_arps_1finaly.csv",
+#              "~/phd/statmod/data/model_data/24fev/P_arps_2finaly.csv",
+#              "~/phd/statmod/data/model_data/24fev/P_arps_3finaly.csv",
+#              "/home/thomas/phd/statmod/data/model_data/2march/P_arps_1finaly.csv",
+#              "/home/thomas/phd/statmod/data/model_data/2march/P_arps_2finaly.csv",
+#              "/home/thomas/phd/statmod/data/model_data/2march/P_arps_3finaly.csv",
+#              "/home/thomas/phd/statmod/data/model_data/2march/P_arps_somepartsindados3finaly.csv",
+#              "/home/thomas/phd/statmod/data/model_data/2march/P_arps_lastpart.csv"
+             ]
 
-    p1 = '/home/thomas/P_arps_1.csv'
-    p2 = '/home/thomas/P_arps_2.csv'
-    p3 = '/home/thomas/P_arps_3.csv'
-    p4 = '/home/thomas/P_arps_4.csv'
-    ps = [p1,p2,p3,p4]
-    df = pd.concat([rdf(p) for p in ps], axis=0)
-    df.to_csv('/home/thomas/P_full')
-    print "Done"
+#     p1 = '/home/thomas/P_arps_1.csv'
+#     p2 = '/home/thomas/P_arps_2.csv'
+#     p3 = '/home/thomas/P_arps_3.csv'
+#     p4 = '/home/thomas/P_arps_4.csv'
+#     df = pd.DataFrame()
+#     for file in files:
+#         pd.concat([df,pd.DataFrame])
+#     ps = [p1,p2,p3,p4]
+
+#     df = pd.DataFrame()
+#     for file in files:
+#         print file
+#         newdf = rdf(file)
+#         df = df.append(newdf)
+#         df.drop_duplicates(inplace=True)
+#         print df.shape
+# 
+#     df.to_csv('~/phd/statmod/data/model_data/2march/P_full.csv')
+#     print "Done"
         
 #     dfPT1 = pd.read_csv('/home/thomas/PT_arps_1.csv')
 #     for i in np.arange(1,4):
