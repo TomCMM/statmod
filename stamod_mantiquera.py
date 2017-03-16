@@ -13,6 +13,13 @@ import pickle
 import sys
 
 if __name__=='__main__':
+    #===========================================================================
+    # User input path
+    #===========================================================================
+    path_gfs = "/home/thomas/phd/statmod/data/gfs_data/" 
+    path_indexes = "/home/thomas/phd/statmod/data/indexes/" 
+    stamod_out_path = "/home/thomas/phd/dynmod/data/sim_140214/statmod/"
+    
     plt.style.use('ggplot')
     import os
     cwd = os.getcwd()
@@ -22,31 +29,45 @@ if __name__=='__main__':
 #     AttSta.addatt(path_df ='/home/thomas/params_topo.csv')
     var = 'Ta C'
     From = "2015-03-01 00:00:00"
-    To = "2015-11-15 00:00:00"
-      
-#     path_gfs = "/home/thomas/"        
-#     df_gfs = pd.read_csv(path_gfs+'gfs_data.csv', index_col =0, parse_dates=True ) # GFS data
-  
-  
-# #===============================================================================
-# # Create GFS predictors dataframe
-# #===============================================================================
-#     path_gfs = "/home/thomas/"        
-#     df_gfs = pd.read_csv(path_gfs+'gfs_data_levels_analysis.csv', index_col =0, parse_dates=True ) # GFS data
-#     del  df_gfs['dirname']
-#     del  df_gfs['basename']
-#     del  df_gfs['time']
-#     del  df_gfs['model']
-#     del  df_gfs['InPath']
-#     df_gfs = df_gfs.dropna(axis=1,how='all') 
-#     df_gfs = df_gfs.dropna(axis=0,how='all')
-#     print df_gfs
-#  
-#   
+    To = "2016-11-01 00:00:00"
+
+   
+#===============================================================================
+# Create GFS predictors dataframe
+    gfs_predict = "fnl_20140214.csv"
+    df_gfs_predict = pd.read_csv(path_gfs+gfs_predict, index_col =0, parse_dates=True ) # GFS data
+    del  df_gfs_predict['dirname']
+    del  df_gfs_predict['basename']
+    del  df_gfs_predict['time']
+    del  df_gfs_predict['model']
+    del  df_gfs_predict['InPath']
+#     df_gfs_predict = df_gfs_predict.dropna(axis=1,how='all') 
+    df_gfs_predict = df_gfs_predict.dropna(axis=1,how='any')
+    print df_gfs_predict
+ 
+ 
+ 
+#     gfs_file = 'gfs_data_levels_analysis.csv'
+    gfs_file = "fnl_2015_basicvar.csv"
+    df_gfs = pd.read_csv(path_gfs+gfs_file, index_col =0, parse_dates=True ) # GFS data
+    del  df_gfs['dirname']
+    del  df_gfs['basename']
+    del  df_gfs['time']
+    del  df_gfs['model']
+    del  df_gfs['InPath']
+    df_gfs = df_gfs.dropna(axis=1,how='all') 
+    df_gfs = df_gfs.dropna(axis=0,how='all')
+     
+    df_gfs = df_gfs.loc[:, df_gfs_predict.columns]
+    print 
+    df_gfs
+    
+
+
 #===============================================================================
 # Create surface observations dataframe
 #===============================================================================
-  
+   
 #------------------------------------------------------------------------------ 
 #    Select stations
 #------------------------------------------------------------------------------ 
@@ -54,47 +75,51 @@ if __name__=='__main__':
 #     Lat = [-23.5,-21.5]
 #     Lon = [-47.5, -45.5]  
 #     Alt = [400,5000]
-  
+ 
+ 
+# #   Arps cold pool
+#     Lat = [-23.29,-22.2]
+#     Lon = [-46.93, -45.76]
+#     Alt = [400,5000]
+ 
 #    Serra Da Mantiquera
     Lat = [-24,-21]
     Lon = [-49, -45]
     Alt = [400,5000]
-  
+    
     net_sinda = LCB_net()
     net_inmet = LCB_net()
     net_iac = LCB_net()
     net_LCB = LCB_net()
     net_svg =  LCB_net()
     net_peg =  LCB_net()
-                 
+                   
 #     Path_Sinda = '/home/thomas/PhD/obs-lcb/staClim/Sinda/obs_clean/Sinda/'
     Path_INMET ='/home/thomas/phd/obs/staClim/inmet/full/'
     Path_IAC ='/home/thomas/phd/obs/staClim/iac/data/full/'
     Path_LCB='/home/thomas/phd/obs/lcbdata/obs/full_sortcorr/'
     Path_svg='/home/thomas/phd/obs/staClim/svg/SVG_2013_2016_Thomas_30m.csv'
     Path_peg='/home/thomas/phd/obs/staClim/peg/Th_peg_tar30m.csv'
-    
+      
     AttSta_IAC = att_sta()
     AttSta_Inmet = att_sta()
 #     AttSta_Sinda = att_sta()
     AttSta_LCB = att_sta()
-       
+         
     AttSta_IAC.setInPaths(Path_IAC)
     AttSta_Inmet.setInPaths(Path_INMET)
 #     AttSta_Sinda.setInPaths(Path_Sinda)
     AttSta_LCB.setInPaths(Path_LCB)
-  
+    
     stanames_IAC =  AttSta.stations(values=['IAC'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt}) # this does not work anymore
     stanames_Inmet = AttSta.stations(values=['Innmet'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt} )
 #     stanames_Sinda = AttSta.stations(values=['Sinda'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt} )
-    stanames_LCB = AttSta_LCB.stations(values = ['Ribeirao'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt})
-      
-    [stanames_IAC.remove(x) for x in ['pc58','sb69'] if x in stanames_IAC ] # Remove stations
+    stanames_LCB = AttSta_LCB.stations(values = ['Head'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt})
+#     stanames_LCB = ['C04', 'C07']
+#     [stanames_IAC.remove(x) for x in ['pc58','sb69'] if x in stanames_IAC ] # Remove stations
 #     [stanames_LCB.remove(x) for x in ['C10','C17','C12','C14','C08'] if x in stanames_LCB ] # Remove stations
-    [stanames_Inmet.remove(x) for x in ['A706','A509', 'A531','A530'] if x in stanames_Inmet ] # Remove stations 
-     
-    stanames =  stanames_IAC + stanames_Inmet + stanames_Inmet 
-     
+#     [stanames_Inmet.remove(x) for x in ['A706','A509', 'A531','A530'] if x in stanames_Inmet ] # Remove stations 
+    
 #------------------------------------------------------------------------------ 
 # Create Dataframe
 #------------------------------------------------------------------------------ 
@@ -102,14 +127,14 @@ if __name__=='__main__':
     Files_Inmet =AttSta_Inmet.getatt(stanames_Inmet,'InPath')
 #     Files_Sinda =AttSta_Sinda.getatt(stanames_Sinda,'InPath')
     Files_LCB =AttSta_LCB.getatt(stanames_LCB,'InPath')
-       
+         
 #     net_sinda.AddFilesSta(Files_Sinda, net='Sinda')
     net_inmet.AddFilesSta(Files_Inmet, net='INMET')
     net_iac.AddFilesSta(Files_IAC, net='IAC')
     net_LCB.AddFilesSta(Files_LCB)
     net_svg.AddFilesSta([Path_svg], net='svg')
     net_peg.AddFilesSta([Path_peg], net='peg')
-  
+    
     df_iac = net_iac.getvarallsta(var=var,by='H',From=From, To = To)
     df_inmet = net_inmet.getvarallsta(var=var,by='H',From=From, To = To)
 #     X_sinda = net_sinda.getvarallsta(var=var,by='3H',From=From, To = To)
@@ -118,24 +143,22 @@ if __name__=='__main__':
     df_svg.columns =['svg']
     df_peg = LCB_station(Path_peg, net='peg').getData(var=var, by='H', From=From, To = To )
     df_peg.columns =['peg']
-#     
-#     
-#     print df_peg
-#     print df_svg
-    df = pd.concat([df_iac,df_LCB, df_peg, df_svg], axis=1)
-#     df = df.between_time('12:00','12:00')
-#     df = df.resample("H").mean()
+  
+    df = pd.concat([df_iac, df_LCB], axis=1)
+#     df = df.between_time('03:00','03:00')
+    df = df.resample("H").mean()
 #     df = df.T
 #     df.plot(legend=False)
 #     plt.xlabel('Date')
 #     plt.ylabel('Temperture (C)')
 #     
 #     plt.show()   
-   
+     
 #     df = df.fillna(df.mean(), axis=0)
     df = df.dropna(axis=0,how='any')
-    df.to_csv('../data/neuralnetwork/df_sta.csv')
-  
+
+#     df.to_csv('../data/neuralnetwork/df_sta.csv')
+     
 #===============================================================================
 # Create train and verify dataframe
 #===============================================================================
@@ -160,140 +183,223 @@ if __name__=='__main__':
 #     df_verif=df
 #     df_gfs_verif = df_gfs[df_gfs.index.isin(df_verif.index)]
 #     df_verif = df_verif[df_verif.index.isin(df_gfs_verif.index)]
-  
-#===========================================================================
+     
+#=====================================
+#===============================================================================
+# Create surface observations dataframe
+#===============================================================================
+     
+#------------------------------------------------------------------------------ 
+#    Select stations
+#------------------------------------------------------------------------------ 
+#      Cantareira sistema
+#     Lat = [-23.5,-21.5]
+#     Lon = [-47.5, -45.5]  
+#     Alt = [400,5000]
+   
+   
+# #   Arps cold pool
+#     Lat = [-23.29,-22.2]
+#     Lon = [-46.93, -45.76]
+#     Alt = [400,5000]
+   
+# #    Serra Da Mantiquera
+    Lat = [-24,-21]
+    Lon = [-49, -45]
+    Alt = [400,5000]
+     
+    net_sinda = LCB_net()
+    net_inmet = LCB_net()
+    net_iac = LCB_net()
+    net_LCB = LCB_net()
+    net_svg =  LCB_net()
+    net_peg =  LCB_net()
+                    
+#     Path_Sinda = '/home/thomas/PhD/obs-lcb/staClim/Sinda/obs_clean/Sinda/'
+    Path_INMET ='/home/thomas/phd/obs/staClim/inmet/full/'
+    Path_IAC ='/home/thomas/phd/obs/staClim/iac/data/full/'
+    Path_LCB='/home/thomas/phd/obs/lcbdata/obs/full_sortcorr/'
+    Path_svg='/home/thomas/phd/obs/staClim/svg/SVG_2013_2016_Thomas_30m.csv'
+    Path_peg='/home/thomas/phd/obs/staClim/peg/Th_peg_tar30m.csv'
+       
+    AttSta_IAC = att_sta()
+    AttSta_Inmet = att_sta()
+#     AttSta_Sinda = att_sta()
+    AttSta_LCB = att_sta()
+          
+    AttSta_IAC.setInPaths(Path_IAC)
+    AttSta_Inmet.setInPaths(Path_INMET)
+#     AttSta_Sinda.setInPaths(Path_Sinda)
+    AttSta_LCB.setInPaths(Path_LCB)
+     
+    stanames_IAC =  AttSta.stations(values=['IAC'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt}) # this does not work anymore
+    stanames_Inmet = AttSta.stations(values=['Innmet'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt} )
+#     stanames_Sinda = AttSta.stations(values=['Sinda'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt} )
+    stanames_LCB = AttSta_LCB.stations(values = ['Ribeirao'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt})
+#     stanames_LCB = ['C04', 'C07']
+    [stanames_IAC.remove(x) for x in ['pc58','sb69'] if x in stanames_IAC ] # Remove stations
+#     [stanames_LCB.remove(x) for x in ['C10','C17','C12','C14','C08'] if x in stanames_LCB ] # Remove stations
+    [stanames_Inmet.remove(x) for x in ['A706','A509', 'A531','A530'] if x in stanames_Inmet ] # Remove stations 
+     
+#------------------------------------------------------------------------------ 
+# Create Dataframe
+#------------------------------------------------------------------------------ 
+    Files_IAC =AttSta_IAC.getatt(stanames_IAC,'InPath')
+    Files_Inmet =AttSta_Inmet.getatt(stanames_Inmet,'InPath')
+#     Files_Sinda =AttSta_Sinda.getatt(stanames_Sinda,'InPath')
+    Files_LCB =AttSta_LCB.getatt(stanames_LCB,'InPath')
+          
+#     net_sinda.AddFilesSta(Files_Sinda, net='Sinda')
+    net_inmet.AddFilesSta(Files_Inmet, net='INMET')
+    net_iac.AddFilesSta(Files_IAC, net='IAC')
+    net_LCB.AddFilesSta(Files_LCB)
+    net_svg.AddFilesSta([Path_svg], net='svg')
+    net_peg.AddFilesSta([Path_peg], net='peg')
+     
+    df_iac = net_iac.getvarallsta(var=var,by='H',From=From, To = To)
+    df_inmet = net_inmet.getvarallsta(var=var,by='H',From=From, To = To)
+#     X_sinda = net_sinda.getvarallsta(var=var,by='3H',From=From, To = To)
+    df_LCB = net_LCB.getvarallsta(var=var, by='H', From=From, To = To )
+    df_svg = LCB_station(Path_svg, net='svg').getData(var=var, by='H', From=From, To = To )
+    df_svg.columns =['svg']
+    df_peg = LCB_station(Path_peg, net='peg').getData(var=var, by='H', From=From, To = To )
+    df_peg.columns =['peg']
+   
+    df = pd.concat([df_iac, df_LCB], axis=1)
+#     df = df.between_time('03:00','03:00')
+    df = df.resample("H").mean()
+#     df = df.T
+#     df.plot(legend=False)
+#     plt.xlabel('Date')
+#     plt.ylabel('Temperture (C)')
+#     
+#     plt.show()   
+      
+#     df = df.fillna(df.mean(), axis=0)
+    df = df.dropna(axis=0,how='any')
+#     df.to_csv('../data/neuralnetwork/df_sta.csv')
+     
+#===============================================================================
+# Create train and verify dataframe
+#===============================================================================
+# #------------------------------------------------------------------------------ 
+# # Select same index
+# #------------------------------------------------------------------------------
+#     df = df[df.index.isin(df_gfs.index)]
+#     df_gfs = df_gfs[df_gfs.index.isin(df.index)]
+#  
+#   
+# #------------------------------------------------------------------------------ 
+# # train dataset
+# #------------------------------------------------------------------------------ 
+# #     df_train = df[:-len(X)/7]
+#     df_train = df
+#     df_gfs_train = df_gfs[df_gfs.index.isin(df_train.index)]
+#   
+# #------------------------------------------------------------------------------ 
+# # verify dataset
+# #------------------------------------------------------------------------------ 
+#     #     df_verif = df[-len(X)/7:]
+#     df_verif=df
+#     df_gfs_verif = df_gfs[df_gfs.index.isin(df_verif.index)]
+#     df_verif = df_verif[df_verif.index.isin(df_gfs_verif.index)]
+     
+#=========================================
 # Create model
 # #=========================================================================== 
 #------------------------------------------------------------------------------ 
 #    PCA
-#------------------------------------------------------------------------------ 
+#------------------------------------------------------------------------------
+    nb_pc = 4
     stamod = StaMod(df, AttSta)
-    stamod.pca_transform(nb_PC=6, standard=True, center =True)
+    stamod.pca_transform(nb_PC=nb_pc, standard=False, center =False)
     stamod.plot_exp_var()
-    
+       
     stamod.plot_scores_ts()
-    stamod.scores.astype(float).to_csv('../data/neuralnetwork/scores_pca_sta_coldpool_fullperiod.csv',float_format=True)
-#     stamod.eigenvectors.iloc[:,:].to_csv('../data/neuralnetwork/loadings_pca_sta_coldpool.csv')
-    stamod.eigenvectors.T.astype(float).to_csv('../data/neuralnetwork/loadings_pca_sta_coldpool_fullperiod.csv',  float_format=True)
-
+#     stamod.scores.astype(float).to_csv('../data/neuralnetwork/scores_pca_sta_coldpool_fullperiod.csv',float_format=True)
+    stamod.eigenvectors.iloc[:,:].to_csv('/home/thomas/phd/statmod/data/loadingindex/loadings_pca_sta_coldpool.csv')
+#     stamod.eigenvectors.T.astype(float).to_csv('../data/neuralnetwork/loadings_pca_sta_coldpool_fullperiod.csv',  float_format=True)
+   
 #     print stamod.eigenvectors.iloc[:,:]
 #     stamod.eigenvectors.T.iloc[:,:].plot()
 #     plt.show()
-    
+       
 # #------------------------------------------------------------------------------ 
 # #    Fit loadings
 # #------------------------------------------------------------------------------ 
-    params_loadings = stamod.fit_loadings(params=["Alt","Alt","Alt","Lon","Alt","Alt","Alt","Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,pol2, lin, lin, lin, lin, lin, lin, lin])
-    stamod.plot_loading(params_fit = params_loadings[0],params_topo= ["Alt","Alt","Alt","Lat","Alt","Alt","Alt","Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,pol2, lin, lin, lin, lin, lin, lin, lin])
-    
-    fig, ax = plt.subplots()
-    plt.scatter(stamod.eigenvectors.loc[3,:], stamod.eigenvectors.loc[4,:])
-    for i, txt in enumerate(stamod.eigenvectors.columns):
-                ax.annotate(txt, (stamod.eigenvectors.iloc[2,i], stamod.eigenvectors.iloc[3,i]))
-    plt.show()
-    pickle.dump(stamod.eigenvectors, open( "save.p", "wb" ))
-
-# #     
-# #     
-#     
-#     pickle.dump(stamod.eigenvectors, open( "save.p", "wb" ))
-
-
-# 
-# #===============================================================================
-# # TEST ARPS index
-# #===============================================================================
-#     latsarps = pd.read_csv('/home/thomas/Lat.csv', index_col=0, header=None)
-#     lonsarps = pd.read_csv('/home/thomas/Lon.csv', index_col=0, header=None)
-#     
-# 
-#     latsarps = latsarps.iloc[1,:].values
-#     lonsarps = lonsarps.iloc[1,:].values
-#     print lonsarps
-#     
-#     print latsarps.min()
-#     print latsarps.max()
-#     print lonsarps.min()
-#     print lonsarps.max()
-#     
-#     arps_corr_pc2 = pd.read_csv('/home/thomas/arps_corr_PC2.csv', index_col=0, header=None)
-#      
-#     def geo_idx(dd, dd_array):
-#         """
-#           search for nearest decimal degree in an array of decimal degrees and return the index.
-#           np.argmin returns the indices of minium value along an axis.
-#           so subtract dd from all values in dd_array, take absolute value and find index of minium.
-#          """
-# 
-#         geo_idx = (np.abs(dd_array - dd)).argmin()
-#         return geo_idx
-#  
-#     stalats = np.array(AttSta.getatt(df.columns, "Lat")).astype(np.float)
-#     stalons = np.array(AttSta.getatt(df.columns, "Lon")).astype(np.float)
-#     print stalats
-#  
-#     lat_idx = []
-#     lon_idx = []
-#      
-#     for lat,lon in zip(stalats, stalons):
-#          
-#         lat_idx.append(geo_idx(float(lat), latsarps))
-#         lon_idx.append(geo_idx(float(lon), lonsarps))
-# 
-#     arps_corr_pc2 = np.reshape(arps_corr_pc2.values, (1201,1201))
-#     plt.scatter(arps_corr_pc2[lon_idx, lat_idx], stamod.eigenvectors.iloc[2,:])
+    params_loadings = stamod.fit_loadings(params=["Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,lin])
+    stamod.plot_loading(params_fit = params_loadings[0], params_topo= ["Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,lin])
+       
+#     fig, ax = plt.subplots()
+#     plt.scatter(stamod.eigenvectors.iloc[2,:], stamod.eigenvectors.iloc[3,:])
+#     for i, txt in enumerate(stamod.eigenvectors.columns):
+#                 ax.annotate(txt, (stamod.eigenvectors.iloc[2,i], stamod.eigenvectors.iloc[3,i]))
 #     plt.show()
-#  
- 
-#------------------------------------------------------------------------------ 
-#    Fit PCs
-#------------------------------------------------------------------------------ 
-#     stamod.stepwise(df_gfs_train,lim_nb_predictors=4)
+#     pickle.dump(stamod.eigenvectors, open( "/home/thomas/phd/statmod/data/loadingindex/loadings.p", "wb" ))
+      
+#     pickle.dump(stamod.eigenvectors, open( "save.p", "wb" ))
   
-# #===============================================================================
-# # Field Results
+# #------------------------------------------------------------------------------ 
+# #    Fit PCs
+# #------------------------------------------------------------------------------ 
+#     stamod.stepwise(df_gfs,lim_nb_predictors=4)
+#     print 'allo'
 # # #===============================================================================
-#     load field
-#     topo_val  = np.loadtxt('/home/thomas/ASTGTM2_S23W047_dem@PERMANENT',delimiter=',')
-#     lat  = np.loadtxt('/home/thomas/latitude.txt',delimiter=',')
-#     lon  = np.loadtxt('/home/thomas/longitude.txt',delimiter=',')
-#   
+# # # Field Results
+# # # #===============================================================================
+#     # load field
+#  
+#     topo_val  = np.loadtxt(path_indexes + 'map_lon44_49_lat20_25_lowres',delimiter=',')
+#     lat  = np.loadtxt(path_indexes + 'map_lon44_49_lat20_25_lowreslatitude.txt',delimiter=',')
+#     lon  = np.loadtxt(path_indexes + 'map_lon44_49_lat20_25_lowreslongitude.txt',delimiter=',')
+#     
+#     
+#     
+#     print 
+#     topo_val=topo_val[::5,::5]
+#     lat=lat[::5,::5]
+#     lon=lon[::5,::5]
 #     shape_topo_val = topo_val.shape
-#   
 #     print shape_topo_val
+#     
+# #    
+# #     print shape_topo_val
 #   
-# #     res = stamod.predict_model([topo_val.flatten()]*2, df_gfs_verif.loc["2015-11-11 03:00:00":"2015-11-11 03:00:00",:])
-#     res = stamod.predict_model([topo_val.flatten()]*2, df_gfs_verif.iloc[10:11,:])
-#   
-#   
+#  
+#     res = stamod.predict_model([topo_val]*nb_pc, df_gfs_predict.loc["2014-02-14 09:00:00":"2014-02-14 09:00:00",:])
+# # #     res = stamod.predict_model([topo_val.flatten()]*nb_pc, df_gfs.iloc[10:11,:])
+# # 
+# #     print res
+# #    
 #     data = res['predicted'].sum(axis=2)
+#     print data
 #   
-# #     np.savetxt('/home/thomas/data.txt', data,delimiter=',')
-#        
+#     np.savetxt('/home/thomas/phd/dynmod/data/sim_140214/statmod/140214_statmod.txt', data,delimiter=',')
+# #         
 #     print 'Plot'*80
 #     # map visualisation
 #     data = data.reshape(shape_topo_val)
+#    
 #     plt.contourf(data, levels = np.linspace(data.min(), data.max(), 100))
 #     plt.colorbar()
 #     plt.show()
-#   
-#   
-# #===============================================================================
-# # Create ADAS input 
-# #===============================================================================
-#     date = datetime.datetime.strptime("2015-11-11", '%Y-%m-%d')# date of the file
-#     hour=datetime.datetime.strptime("03:00:00", '%H:%M:%S')# hour of the file
-#     outpath = '/home/thomas/surfass.lso'
-#     
-#     
+# #   
+# #   
+# # #===============================================================================
+# # # Create ADAS input 
+# # #===============================================================================
+#     date = datetime.datetime.strptime("2014-02-14", '%Y-%m-%d')# date of the file
+#     hour=datetime.datetime.strptime("09:00:00", '%H:%M:%S')# hour of the file (UTC ?)
+#         
 #     topo_val = topo_val.flatten()
 #     lat = lat.flatten()
 #     lon = lon.flatten()
 #     data = data.flatten()
-#     print data
-#     print data.shape
 #      
-#     stamod.to_adas(data, lat, lon, topo_val, date, hour, outpath)
+#     # conversion in farenheit
+#     data = data*(9/5.) +32
+#    
+#     stamod.to_adas(data, lat, lon, topo_val, date, hour, stamod_out_path+'surfass.lso')
 # #     
 # #===============================================================================
 # # model verification temperature directly from the stepwise regression

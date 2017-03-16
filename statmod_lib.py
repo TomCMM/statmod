@@ -35,7 +35,6 @@ import statsmodels.api as sm
 from matplotlib.ticker import MaxNLocator
 # LCB_Irr = Irradiance_sim_obs.LCB_Irr
 
-
 class StaMod():
     """
     Contain function and plot to perform Empirical Orthogonal Function
@@ -226,10 +225,7 @@ class StaMod():
         for PC, row in self.eigenvectors.iterrows():
             X = np.array(self.AttSta.getatt(self.df.keys(), params[PC - 1]))
             self.topo_index.append(X)
-            
-            print fit[PC-1]
-            print X
-            print row
+
             
             popt, pcov = curve_fit(fit[PC-1], X, row)
             fit_parameters.append([x for x in popt])
@@ -237,7 +233,7 @@ class StaMod():
 #         print fit_parameters
 #         fit_parameters = np.vstack(fit_parameters)
 #         print 
-        self.params_loadings = [pd.DataFrame(fit_parameters, index =range(1,self.nb_PC+1), columns = range(3))]
+        self.params_loadings = [pd.DataFrame(fit_parameters, index =range(1,self.nb_PC+1), columns = range(2))]
         self.fit_loadings = fit
         return self.params_loadings
 
@@ -441,7 +437,6 @@ class StaMod():
         else:
             plt.show()
 
-
     def plot_loading(self, params_topo=None, params_fit=None, output=False, fit=None):
         """
         DESCRIPTION
@@ -548,7 +543,7 @@ class StaMod():
         nobs=len(var)
 
         print nobs
-        id = "STA"
+        id = "SA"
         
         
         if not outpath:
@@ -564,7 +559,7 @@ class StaMod():
         
         for i in range(nobs):
             #station header
-            f_out.write("{} {} {} {} {} {} {}\n".format(str(id).rjust(sep),np.around(lat[i],decimals=2),str(np.around(lon[i],decimals=2)).rjust(sep),
+            f_out.write("{} {} {} {} {} {} {}\n".format(str(id).rjust(5),np.around(lat[i],decimals=2),str(np.around(lon[i],decimals=2)).rjust(sep),
                                                         str(np.around(alt[i],decimals=0)).rjust(5),str("SA").rjust(2),str(hour.strftime('%H%M')).rjust(10), "".rjust(8) ))
             #Data variable:line1
             f_out.write(" {} {} {} {} {} {} {} {} {}\n".format(str(np.round(var[i],decimals=1)).rjust(9),str(-99.9).rjust(6),str(-99.9).rjust(5),
@@ -608,14 +603,27 @@ class StaMod():
 
         # NEED TO IMPLEMENT MATRIX MULTIPLICATION!!!!!!!!!!!!!! I use to much loop
         for PC_nb, fit_loading, predictor_loadings in zip(range(1,self.nb_PC+1),fit_loadings,predictors_loadings):
-            
+            print PC_nb
             p = params_loadings[0].loc[PC_nb,:].dropna()
             loading_est = fit_loading(predictor_loadings, *p)
             
-            score_est = pd.Series(scores_model['model'][PC_nb].predict(predictors_scores.loc[:, scores_model['predictor'][PC_nb]]))
-            score = pd.concat([score_est] * len(loading_est), axis=1)
-            predict= score.multiply(loading_est)
-                        
+            print predictors_scores
+            print "="*100
+            print predictors_scores.loc[:, scores_model['predictor'][PC_nb]]
+            
+            score_est = scores_model['model'][PC_nb].predict(predictors_scores.loc[:, scores_model['predictor'][PC_nb]])
+            print "B"
+            print score_est
+            print len(loading_est)
+            score = [score_est for l in range(len(loading_est))]
+            
+#             score = pd.concat([score_est for l in range(len(loading_est))], axis=1)
+            print "C"
+#             print score
+#             print loading_est
+            predict= score[0]* np.array(loading_est)
+            print "D" 
+            
             loadings.append(loading_est)
             scores.append( score_est)
             predicted.append( predict)
@@ -691,10 +699,12 @@ class StaMod():
         predictors_name = pd.Series(predictors_name)
         models = pd.Series(models)
 
+        print "Saving"
         scores_model = pd.concat([predictors_name,models],axis=1)
         scores_model.columns = ['predictor', 'model']
         scores_model.index = range(1,self.nb_PC+1 )
         self.scores_model = scores_model 
+        print "Done"
         return self.scores_model
 
     def skill_model(self, df_verif, res, metrics, params_loadings=None, params_scores=None,
@@ -774,20 +784,14 @@ def show_values(pc, fmt="%.2f", **kw):
             color = (1.0, 1.0, 1.0)
         ax.text(x, y, fmt % value, ha="center", va="center",fontsize=14, color=color, **kw)
 
-
-
 #def piecewise_linear(x, k1, k2, x0=1100, y0=0.4):
 #    return np.piecewise(x, [x < x0], [lambda x:k1*x + y0-k1*x0, lambda x:k2*x + y0-k2*x0])
-
 
 def piecewise_linear(x, k1, k2, x0, y0): # need to be improve!!!!!!!!!!!!!!!
     return np.piecewise(x, [x < 1100], [lambda x:k1*x + 0.5-k1*1100, lambda x:k2*x + 0.5-k2*1100])
 
 def piecewise_linear2(x, k1, k2, x0, y0): # need to be improve!!!!!!!!!!!!!!!
     return np.piecewise(x, [x < 1100], [lambda x:k1*x + 0.5-k1*1100, lambda x:k2*x + 0.5-k2*1100])
-
-
-
 
 def pol2(x, a, b, c):
     """
