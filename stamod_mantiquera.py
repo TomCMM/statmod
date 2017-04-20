@@ -11,6 +11,23 @@ from numpy.testing.utils import measure
 import datetime
 import pickle
 import sys
+import matplotlib
+
+font = {'family' : 'normal',
+        'weight' : 'bold',
+        'size'   : 10}
+
+matplotlib.rc('font', **font)
+ 
+matplotlib.rcParams['axes.titlesize'] = 10
+matplotlib.rcParams['axes.labelsize'] = 8
+matplotlib.rcParams['lines.linewidth'] = 2
+matplotlib.rcParams['lines.markersize'] = 8
+matplotlib.rcParams['xtick.labelsize'] = 8
+matplotlib.rcParams['ytick.labelsize'] = 8
+matplotlib.rcParams['legend.fontsize'] = 8
+# plt.rc('legend',fontsize=20)
+
 
 if __name__=='__main__':
     #===========================================================================
@@ -28,8 +45,8 @@ if __name__=='__main__':
 #     AttSta.addatt(path_df = '/home/thomas/arps_coldpool.csv')
 #     AttSta.addatt(path_df ='/home/thomas/params_topo.csv')
     var = 'Ta C'
-    From = "2015-03-01 00:00:00"
-    To = "2016-11-01 00:00:00"
+    From = "2015-01-01 00:00:00"
+    To = "2016-01-01 00:00:00"
 
    
 #===============================================================================
@@ -83,9 +100,9 @@ if __name__=='__main__':
 #     Alt = [400,5000]
  
 #    Serra Da Mantiquera
-    Lat = [-24,-21]
-    Lon = [-49, -45]
-    Alt = [400,5000]
+    Lat = [-25,-21]
+    Lon = [-48, -44]
+    Alt = [500,5000]
     
     net_sinda = LCB_net()
     net_inmet = LCB_net()
@@ -114,11 +131,11 @@ if __name__=='__main__':
     stanames_IAC =  AttSta.stations(values=['IAC'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt}) # this does not work anymore
     stanames_Inmet = AttSta.stations(values=['Innmet'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt} )
 #     stanames_Sinda = AttSta.stations(values=['Sinda'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt} )
-    stanames_LCB = AttSta_LCB.stations(values = ['Head'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt})
-#     stanames_LCB = ['C04', 'C07']
-#     [stanames_IAC.remove(x) for x in ['pc58','sb69'] if x in stanames_IAC ] # Remove stations
+    stanames_LCB = AttSta_LCB.stations(values = ['Ribeirao'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt})
+#     stanames_LCB = ['C10', 'C08','C15','C05' ]
+    [stanames_IAC.remove(x) for x in ['pc58','sb69'] if x in stanames_IAC ] # Remove stations
 #     [stanames_LCB.remove(x) for x in ['C10','C17','C12','C14','C08'] if x in stanames_LCB ] # Remove stations
-#     [stanames_Inmet.remove(x) for x in ['A706','A509', 'A531','A530'] if x in stanames_Inmet ] # Remove stations 
+    [stanames_Inmet.remove(x) for x in ['A531'] if x in stanames_Inmet ] # Remove stations 
     
 #------------------------------------------------------------------------------ 
 # Create Dataframe
@@ -131,6 +148,7 @@ if __name__=='__main__':
 #     net_sinda.AddFilesSta(Files_Sinda, net='Sinda')
     net_inmet.AddFilesSta(Files_Inmet, net='INMET')
     net_iac.AddFilesSta(Files_IAC, net='IAC')
+
     net_LCB.AddFilesSta(Files_LCB)
     net_svg.AddFilesSta([Path_svg], net='svg')
     net_peg.AddFilesSta([Path_peg], net='peg')
@@ -144,9 +162,9 @@ if __name__=='__main__':
     df_peg = LCB_station(Path_peg, net='peg').getData(var=var, by='H', From=From, To = To )
     df_peg.columns =['peg']
   
-    df = pd.concat([df_iac, df_LCB], axis=1)
-#     df = df.between_time('03:00','03:00')
-    df = df.resample("H").mean()
+    df = pd.concat([ df_LCB, df_iac], axis=1, join='inner')
+#     df = df.between_time('00:00','03:00')
+#     df = df.resample("D").min()
 #     df = df.T
 #     df.plot(legend=False)
 #     plt.xlabel('Date')
@@ -159,151 +177,32 @@ if __name__=='__main__':
 
 #     df.to_csv('../data/neuralnetwork/df_sta.csv')
      
-#===============================================================================
-# Create train and verify dataframe
-#===============================================================================
+# #===============================================================================
+# # Create train and verify dataframe
+# #===============================================================================
 # #------------------------------------------------------------------------------ 
 # # Select same index
 # #------------------------------------------------------------------------------
 #     df = df[df.index.isin(df_gfs.index)]
 #     df_gfs = df_gfs[df_gfs.index.isin(df.index)]
-#  
 #   
+#    
 # #------------------------------------------------------------------------------ 
 # # train dataset
 # #------------------------------------------------------------------------------ 
-# #     df_train = df[:-len(X)/7]
+# #     df_train = df[:-len(df)/7]
 #     df_train = df
 #     df_gfs_train = df_gfs[df_gfs.index.isin(df_train.index)]
-#   
+#    
 # #------------------------------------------------------------------------------ 
 # # verify dataset
 # #------------------------------------------------------------------------------ 
-#     #     df_verif = df[-len(X)/7:]
+# #     df_verif = df[-len(df)/7:]
 #     df_verif=df
 #     df_gfs_verif = df_gfs[df_gfs.index.isin(df_verif.index)]
 #     df_verif = df_verif[df_verif.index.isin(df_gfs_verif.index)]
-     
-#=====================================
-#===============================================================================
-# Create surface observations dataframe
-#===============================================================================
-     
-#------------------------------------------------------------------------------ 
-#    Select stations
-#------------------------------------------------------------------------------ 
-#      Cantareira sistema
-#     Lat = [-23.5,-21.5]
-#     Lon = [-47.5, -45.5]  
-#     Alt = [400,5000]
-   
-   
-# #   Arps cold pool
-#     Lat = [-23.29,-22.2]
-#     Lon = [-46.93, -45.76]
-#     Alt = [400,5000]
-   
-# #    Serra Da Mantiquera
-    Lat = [-24,-21]
-    Lon = [-49, -45]
-    Alt = [400,5000]
-     
-    net_sinda = LCB_net()
-    net_inmet = LCB_net()
-    net_iac = LCB_net()
-    net_LCB = LCB_net()
-    net_svg =  LCB_net()
-    net_peg =  LCB_net()
-                    
-#     Path_Sinda = '/home/thomas/PhD/obs-lcb/staClim/Sinda/obs_clean/Sinda/'
-    Path_INMET ='/home/thomas/phd/obs/staClim/inmet/full/'
-    Path_IAC ='/home/thomas/phd/obs/staClim/iac/data/full/'
-    Path_LCB='/home/thomas/phd/obs/lcbdata/obs/full_sortcorr/'
-    Path_svg='/home/thomas/phd/obs/staClim/svg/SVG_2013_2016_Thomas_30m.csv'
-    Path_peg='/home/thomas/phd/obs/staClim/peg/Th_peg_tar30m.csv'
-       
-    AttSta_IAC = att_sta()
-    AttSta_Inmet = att_sta()
-#     AttSta_Sinda = att_sta()
-    AttSta_LCB = att_sta()
-          
-    AttSta_IAC.setInPaths(Path_IAC)
-    AttSta_Inmet.setInPaths(Path_INMET)
-#     AttSta_Sinda.setInPaths(Path_Sinda)
-    AttSta_LCB.setInPaths(Path_LCB)
-     
-    stanames_IAC =  AttSta.stations(values=['IAC'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt}) # this does not work anymore
-    stanames_Inmet = AttSta.stations(values=['Innmet'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt} )
-#     stanames_Sinda = AttSta.stations(values=['Sinda'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt} )
-    stanames_LCB = AttSta_LCB.stations(values = ['Ribeirao'], params={'Lat':Lat, 'Lon':Lon, 'Alt':Alt})
-#     stanames_LCB = ['C04', 'C07']
-    [stanames_IAC.remove(x) for x in ['pc58','sb69'] if x in stanames_IAC ] # Remove stations
-#     [stanames_LCB.remove(x) for x in ['C10','C17','C12','C14','C08'] if x in stanames_LCB ] # Remove stations
-    [stanames_Inmet.remove(x) for x in ['A706','A509', 'A531','A530'] if x in stanames_Inmet ] # Remove stations 
-     
-#------------------------------------------------------------------------------ 
-# Create Dataframe
-#------------------------------------------------------------------------------ 
-    Files_IAC =AttSta_IAC.getatt(stanames_IAC,'InPath')
-    Files_Inmet =AttSta_Inmet.getatt(stanames_Inmet,'InPath')
-#     Files_Sinda =AttSta_Sinda.getatt(stanames_Sinda,'InPath')
-    Files_LCB =AttSta_LCB.getatt(stanames_LCB,'InPath')
-          
-#     net_sinda.AddFilesSta(Files_Sinda, net='Sinda')
-    net_inmet.AddFilesSta(Files_Inmet, net='INMET')
-    net_iac.AddFilesSta(Files_IAC, net='IAC')
-    net_LCB.AddFilesSta(Files_LCB)
-    net_svg.AddFilesSta([Path_svg], net='svg')
-    net_peg.AddFilesSta([Path_peg], net='peg')
-     
-    df_iac = net_iac.getvarallsta(var=var,by='H',From=From, To = To)
-    df_inmet = net_inmet.getvarallsta(var=var,by='H',From=From, To = To)
-#     X_sinda = net_sinda.getvarallsta(var=var,by='3H',From=From, To = To)
-    df_LCB = net_LCB.getvarallsta(var=var, by='H', From=From, To = To )
-    df_svg = LCB_station(Path_svg, net='svg').getData(var=var, by='H', From=From, To = To )
-    df_svg.columns =['svg']
-    df_peg = LCB_station(Path_peg, net='peg').getData(var=var, by='H', From=From, To = To )
-    df_peg.columns =['peg']
-   
-    df = pd.concat([df_iac, df_LCB], axis=1)
-#     df = df.between_time('03:00','03:00')
-    df = df.resample("H").mean()
-#     df = df.T
-#     df.plot(legend=False)
-#     plt.xlabel('Date')
-#     plt.ylabel('Temperture (C)')
-#     
-#     plt.show()   
-      
-#     df = df.fillna(df.mean(), axis=0)
-    df = df.dropna(axis=0,how='any')
-#     df.to_csv('../data/neuralnetwork/df_sta.csv')
-     
-#===============================================================================
-# Create train and verify dataframe
-#===============================================================================
-# #------------------------------------------------------------------------------ 
-# # Select same index
-# #------------------------------------------------------------------------------
-#     df = df[df.index.isin(df_gfs.index)]
-#     df_gfs = df_gfs[df_gfs.index.isin(df.index)]
-#  
-#   
-# #------------------------------------------------------------------------------ 
-# # train dataset
-# #------------------------------------------------------------------------------ 
-# #     df_train = df[:-len(X)/7]
-#     df_train = df
-#     df_gfs_train = df_gfs[df_gfs.index.isin(df_train.index)]
-#   
-# #------------------------------------------------------------------------------ 
-# # verify dataset
-# #------------------------------------------------------------------------------ 
-#     #     df_verif = df[-len(X)/7:]
-#     df_verif=df
-#     df_gfs_verif = df_gfs[df_gfs.index.isin(df_verif.index)]
-#     df_verif = df_verif[df_verif.index.isin(df_gfs_verif.index)]
-     
+#      
+
 #=========================================
 # Create model
 # #=========================================================================== 
@@ -311,13 +210,18 @@ if __name__=='__main__':
 #    PCA
 #------------------------------------------------------------------------------
     nb_pc = 4
+    
+#     df = df.subtract(df.mean(axis=1), axis='index')
+#     df = df.subtract(df.mean(axis=0), axis='columns')
+    
     stamod = StaMod(df, AttSta)
-    stamod.pca_transform(nb_PC=nb_pc, standard=False, center =False)
+    stamod.pca_transform(nb_PC=nb_pc, cov=True, standard=False, remove_mean1 =True, remove_mean0 =False)
     stamod.plot_exp_var()
-       
+#
+    
     stamod.plot_scores_ts()
 #     stamod.scores.astype(float).to_csv('../data/neuralnetwork/scores_pca_sta_coldpool_fullperiod.csv',float_format=True)
-    stamod.eigenvectors.iloc[:,:].to_csv('/home/thomas/phd/statmod/data/loadingindex/loadings_pca_sta_coldpool.csv')
+#     stamod.eigenvectors.iloc[:,:].to_csv('/home/thomas/phd/statmod/data/loadingindex/loadings_pca_sta_coldpool.csv')
 #     stamod.eigenvectors.T.astype(float).to_csv('../data/neuralnetwork/loadings_pca_sta_coldpool_fullperiod.csv',  float_format=True)
    
 #     print stamod.eigenvectors.iloc[:,:]
@@ -327,8 +231,8 @@ if __name__=='__main__':
 # #------------------------------------------------------------------------------ 
 # #    Fit loadings
 # #------------------------------------------------------------------------------ 
-    params_loadings = stamod.fit_loadings(params=["Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,lin])
-    stamod.plot_loading(params_fit = params_loadings[0], params_topo= ["Alt","Alt","Alt","Alt"], fit=[lin,lin,lin,lin])
+    params_loadings = stamod.fit_loadings(params=["Alt","Alt","Lat","Alt"], fit=[lin,lin,lin,lin])
+    stamod.plot_loading(params_fit = params_loadings[0], params_topo= ["Alt","Alt","Lat","Alt"], fit=[lin,lin,lin,lin])
        
 #     fig, ax = plt.subplots()
 #     plt.scatter(stamod.eigenvectors.iloc[2,:], stamod.eigenvectors.iloc[3,:])
@@ -342,7 +246,7 @@ if __name__=='__main__':
 # #------------------------------------------------------------------------------ 
 # #    Fit PCs
 # #------------------------------------------------------------------------------ 
-#     stamod.stepwise(df_gfs,lim_nb_predictors=4)
+    stamod.stepwise(df_gfs,lim_nb_predictors=4)
 #     print 'allo'
 # # #===============================================================================
 # # # Field Results
@@ -404,36 +308,45 @@ if __name__=='__main__':
 # #===============================================================================
 # # model verification temperature directly from the stepwise regression
 # #===============================================================================
-# 
-# #     res = stamod.predict_model(stamod.topo_index, df_gfs_verif)
-# #     MAE =  stamod.skill_model(df_verif,res , metrics = metrics.mean_absolute_error, plot=True)
-# #     MSE=  stamod.skill_model(df_verif,res , metrics = metrics.mean_squared_error, plot=False)
-# #     
-# #     print "X"* 20
-# #     print "Results"
-# #     print "Spatially averaged MSE: " + str (MSE.mean())
-# #     print "Spatially averaged MAE: " + str (MAE.mean())
-# #     print "X"* 20
-# 
-# 
+# # 
+    print df_gfs_verif
+    res = stamod.predict_model(stamod.topo_index, df_gfs_verif)
+    print res['scores'].shape
+    MAE =  stamod.skill_model(df_verif,res , metrics = metrics.mean_absolute_error, summary=True, plot_summary=True)
+    MSE=  stamod.skill_model(df_verif,res , metrics = metrics.mean_squared_error, summary=True, plot_summary=True)
+#      
+    print "X"* 20
+    print "Results"
+    print "Spatially averaged MSE: " + str (MSE.mean(axis=1))
+    print "Spatially averaged MAE: " + str (MAE.mean(axis=1))
+    print "X"* 20
+# # 
+# # 
 # #===============================================================================
 # # GFS temperature Error
 # #===============================================================================
-# # # gfs
-# #     df_rec = pd.DataFrame(index= df_verif.index)
-# #     for sta in df_verif.columns:
-# #         df_rec = pd.concat([df_rec, df_gfs["TMP_2maboveground"]], axis=1, join="outer") 
-# #     df_rec.columns = df_verif.columns
-# #     df_rec = df_rec-273.15
-# # # #     error = df_verif - df_gfs_verif
-# #     from sklearn.metrics import mean_absolute_error, mean_squared_error
-# # #      
-# # #      
-# #     print "X"* 20
-# #     print "Results"
-# #     print "Spatially averaged MSE: " + str (mean_squared_error(df_verif, df_rec))
-# #     print "Spatially averaged MAE: " + str (mean_absolute_error(df_verif, df_rec))
-# #     print "X"* 20
+# gfs
+    df_rec = pd.DataFrame(index= df_verif.index)
+    for sta in df_verif.columns:
+        df_rec = pd.concat([df_rec, df_gfs["TMP_2maboveground"]], axis=1, join="outer") 
+    df_rec.columns = df_verif.columns
+    df_rec = df_rec-273.15
+# #     error = df_verif - df_gfs_verif
+    from sklearn.metrics import mean_absolute_error, mean_squared_error
+
+
+    MAE = mean_absolute_error(df_verif, df_rec)
+    MSE = mean_squared_error(df_verif, df_rec)
+
+
+    print MAE
+    print MSE
+    
+    print "X"* 20
+    print "Results"
+    print "Spatially averaged MSE: " + str ()
+    print "Spatially averaged MAE: " + str ()
+    print "X"* 20
 # 
 # 
 # #===============================================================================

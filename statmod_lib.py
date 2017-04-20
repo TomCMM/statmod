@@ -35,6 +35,8 @@ import statsmodels.api as sm
 from matplotlib.ticker import MaxNLocator
 # LCB_Irr = Irradiance_sim_obs.LCB_Irr
 
+from sklearn.decomposition import PCA, KernelPCA
+
 class StaMod():
     """
     Contain function and plot to perform Empirical Orthogonal Function
@@ -59,7 +61,7 @@ class StaMod():
         self.standard = False # flag to see if the input data has been standardize
         self.scores_model = {} # contain the models for the scores
 
-    def pca_transform(self, nb_PC=4,center=False, standard = False, sklearn=False, cov=True):
+    def pca_transform(self, nb_PC=4,remove_mean0=False,remove_mean1=False, standard = False, sklearn=False,sklearn_kernel=False, cov=True):
         """
         Perform the Principal component analysis with SKlearn
         using singular value decomposition
@@ -90,11 +92,15 @@ class StaMod():
         df = self.df
         self.nb_PC = nb_PC
 
-        if center:
-            print 'center'
-            df = (df - df.mean(axis=0))
+        if remove_mean0:
+            print 'remove_mean0'
+            df = df.subtract(df.mean(axis=0), axis='columns')
 
-
+        if remove_mean1:
+            print 'remove_mean1'
+            df = df.subtract(df.mean(axis=1), axis='index')
+            print df
+        
         if standard:
             # standardize
 #             df_std = StandardScaler().fit_transform(df)
@@ -109,9 +115,14 @@ class StaMod():
             print "o"*80
             print "SVD sklearn used"
             print "o"*80
+
+            if sklearn_kernel:
+                print 'sklearn_kernel'
+                pca = KernelPCA(nb_PC, kernel="rbf", fit_inverse_transform=True, gamma=10)
+            
             #Create a PCA model with nb_PC principal components
-            pca = PCA(nb_PC)
-    
+            else:
+                pca = PCA(nb_PC)
             # fit data
             pca.fit(df)
              
@@ -499,6 +510,7 @@ class StaMod():
             p = params_fit.loc[i+1,:]
             y = func(x, *p)
             
+            plt.figure()
             plt.plot(x,y)
             plt.grid(True)
             plt.show()
@@ -603,31 +615,35 @@ class StaMod():
 
         # NEED TO IMPLEMENT MATRIX MULTIPLICATION!!!!!!!!!!!!!! I use to much loop
         for PC_nb, fit_loading, predictor_loadings in zip(range(1,self.nb_PC+1),fit_loadings,predictors_loadings):
-            print PC_nb
+#             print PC_nb
             p = params_loadings[0].loc[PC_nb,:].dropna()
             loading_est = fit_loading(predictor_loadings, *p)
-            
-            print predictors_scores
-            print "="*100
-            print predictors_scores.loc[:, scores_model['predictor'][PC_nb]]
-            
+# #             
+# #             print predictors_scores
+# #             print "="*100
+# #             print predictors_scores.loc[:, scores_model['predictor'][PC_nb]]
+#             
             score_est = scores_model['model'][PC_nb].predict(predictors_scores.loc[:, scores_model['predictor'][PC_nb]])
-            print "B"
-            print score_est
-            print len(loading_est)
-            score = [score_est for l in range(len(loading_est))]
-            
-#             score = pd.concat([score_est for l in range(len(loading_est))], axis=1)
-            print "C"
-#             print score
-#             print loading_est
-            predict= score[0]* np.array(loading_est)
-            print "D" 
-            
+            score_est = np.array([score_est for l in range(len(loading_est))])
+            score_est = pd.DataFrame(score_est).T
+            print score_est.shape
+            predict= score_est.multiply(loading_est)
+# # 
+# #             print score_est
+# #             print len(loading_est)
+# #             score = [score_est for l in range(len(loading_est))]
+# 
+# #             score = pd.concat([score_est for l in range(len(loading_est))], axis=1)
+# #             print "C"
+# #             print score
+# #             print loading_est
+#             predict= score* np.array(loading_est)
+# #             print "D" 
+#             
             loadings.append(loading_est)
             scores.append( score_est)
             predicted.append( predict)
-        
+#         
         loadings = np.array(np.dstack(loadings))
         scores = np.array(np.dstack(scores))
         predicted = np.array(np.dstack(predicted))
@@ -760,14 +776,15 @@ class StaMod():
             score.loc[:,'Total_stations'] = score.mean(axis=1)
             if plot_summary:
                 plt.figure()
-                c = plt.pcolor(score, cmap="bwr")
-                plt.colorbar()
-                show_values(c)
+                c = plt.pcolor(score, cmap="viridis")
+                cbar = plt.colorbar()
+                cbar.ax.tick_params(labelsize=14) 
+#                 show_values(c)
                 plt.title("Validation summary")
 #                 print type(score)
 #                 sns.heatmap(score)
                 plt.yticks(np.arange(0.5, len(score.index), 1), score.index, fontsize=14)
-                plt.xticks(np.arange(0.5, len(score.columns), 1), score.columns, fontsize=14)
+                plt.xticks(np.arange(0.5, len(score.columns), 1), score.columns, fontsize=14,rotation='vertical')
                 plt.show()
                 print score
         return score
